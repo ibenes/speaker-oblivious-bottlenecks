@@ -32,8 +32,8 @@ class Plotter():
             (0, 0, 1)
         ])
 
-    def plot(self, X, phn, spk, transform = lambda x:x):
-        plt.figure()
+    def plot(self, X, phn, spk, name="fig", transform = lambda x:x):
+        plt.figure(name)
 
         for i, m in enumerate(['o', '+', 'x']):
             mask = (spk.numpy() == i)
@@ -79,7 +79,7 @@ if __name__ == '__main__':
         t_spk = torch.cat([t_spk, spk_g], 0)
 
     plotter = Plotter()
-    plotter.plot(X, t_phn, t_spk)
+    plotter.plot(X, t_phn, t_spk, name="Raw data")
 
     bn_extractor = torch.nn.Sequential(
         torch.nn.Linear(2, 10),
@@ -89,4 +89,4 @@ if __name__ == '__main__':
         torch.nn.Linear(10, 2),
     )
 
-    plotter.plot(X, t_phn, t_spk, bn_extractor)
+    plotter.plot(X, t_phn, t_spk, name="BN features", transform=bn_extractor)
