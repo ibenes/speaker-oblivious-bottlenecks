@@ -5,6 +5,9 @@ import torch
 
 import matplotlib
 import matplotlib.pyplot as plt
+from torch.autograd import Variable
+
+import atexit
 
 
 class PhnSpkGenerator():
@@ -29,18 +32,22 @@ class Plotter():
             (0, 0, 1)
         ])
 
-    def plot(self, X, phn, spk):
+    def plot(self, X, phn, spk, transform = lambda x:x):
         plt.figure()
 
         for i, m in enumerate(['o', '+', 'x']):
             mask = (spk.numpy() == i)
             spk_set = X.numpy()[mask]
+            spk_set = Variable(torch.from_numpy(spk_set).float())
+            spk_set = transform(spk_set).data.numpy()
             plt.scatter(spk_set[:,0], spk_set[:,1],
                         c=t_phn.numpy()[mask], cmap=self._cmap, marker=m) 
-        plt.show()
+        plt.show(block=False)
         
 
 if __name__ == '__main__':
+    atexit.register(plt.show)
+     
     phn_mus = []
     phn_mus.append(np.asarray([1,1]))
     phn_mus.append(np.asarray([3,-2]))
@@ -73,3 +80,13 @@ if __name__ == '__main__':
 
     plotter = Plotter()
     plotter.plot(X, t_phn, t_spk)
+
+    bn_extractor = torch.nn.Sequential(
+        torch.nn.Linear(2, 10),
+        torch.nn.ReLU(),
+        torch.nn.Linear(10, 10),
+        torch.nn.ReLU(),
+        torch.nn.Linear(10, 2),
+    )
+
+    plotter.plot(X, t_phn, t_spk, bn_extractor)
