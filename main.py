@@ -31,7 +31,12 @@ class Plotter():
 
     def plot(self, X, phn, spk):
         plt.figure()
-        plt.scatter(X.numpy()[:,0], X.numpy()[:,1], c=t_phn.numpy(), cmap=self._cmap) 
+
+        for i, m in enumerate(['o', '+', 'x']):
+            mask = (spk.numpy() == i)
+            spk_set = X.numpy()[mask]
+            plt.scatter(spk_set[:,0], spk_set[:,1],
+                        c=t_phn.numpy()[mask], cmap=self._cmap, marker=m) 
         plt.show()
         
 
