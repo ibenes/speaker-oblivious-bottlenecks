@@ -6,6 +6,7 @@ import torch
 import matplotlib
 import matplotlib.pyplot as plt
 
+
 class PhnSpkGenerator():
     def __init__(self, mu, cov, phn, spk):
         self._mu = mu
@@ -18,6 +19,21 @@ class PhnSpkGenerator():
         phn = torch.ones(N) * self._phn
         spk = torch.ones(N) * self._spk
         return torch.from_numpy(X).float(), phn, spk
+
+
+class Plotter():
+    def __init__(self):
+        self._cmap = matplotlib.colors.ListedColormap([
+            (1, 0, 0),
+            (0, 1, 0),
+            (0, 0, 1)
+        ])
+
+    def plot(self, X, phn, spk):
+        plt.figure()
+        plt.scatter(X.numpy()[:,0], X.numpy()[:,1], c=t_phn.numpy(), cmap=self._cmap) 
+        plt.show()
+        
 
 if __name__ == '__main__':
     phn_mus = []
@@ -50,12 +66,5 @@ if __name__ == '__main__':
         t_phn = torch.cat([t_phn, phn_g], 0)
         t_spk = torch.cat([t_spk, spk_g], 0)
 
-    my_colors = matplotlib.colors.ListedColormap([
-        (1, 0, 0),
-        (0, 1, 0),
-        (0, 0, 1)
-    ])
-
-    plt.figure()
-    plt.scatter(X.numpy()[:,0], X.numpy()[:,1], c=t_phn.numpy(), cmap=my_colors) 
-    plt.show()
+    plotter = Plotter()
+    plotter.plot(X, t_phn, t_spk)
