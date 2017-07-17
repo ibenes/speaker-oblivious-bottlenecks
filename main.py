@@ -3,6 +3,7 @@
 import numpy as np
 import torch
 
+import matplotlib
 import matplotlib.pyplot as plt
 
 class PhnSpkGenerator():
@@ -19,8 +20,6 @@ class PhnSpkGenerator():
         return torch.from_numpy(X).float(), phn, spk
 
 if __name__ == '__main__':
-    print('hello')
-
     phn_mus = []
     phn_mus.append(np.asarray([1,1]))
     phn_mus.append(np.asarray([3,-2]))
@@ -31,12 +30,15 @@ if __name__ == '__main__':
     phn_covs.append(np.asarray([[1,0], [0,1]]))
     phn_covs.append(np.asarray([[1,0], [0,1]]))
 
-    gen1 = PhnSpkGenerator([4,1], [[2, 0.5],[0.5, 0.5]], phn=0, spk=0)
-    X, phn, spk = gen1.generate(100)
+    spk_mus = []
+    spk_mus.append(np.asarray([0, 3]))
+    spk_mus.append(np.asarray([0, 6]))
+    spk_mus.append(np.asarray([0, 9]))
 
     gens = []
-    for phn_mu, phn_cov in zip(phn_mus, phn_covs):
-        gens.append(PhnSpkGenerator(phn_mu, phn_cov, 0, 0))
+    for phn, (phn_mu, phn_cov) in enumerate(zip(phn_mus, phn_covs)):
+        for spk, spk_mu in enumerate(spk_mus):
+            gens.append(PhnSpkGenerator(phn_mu+spk_mu, phn_cov, phn, spk))
         
     X = torch.zeros((0, 2))
     t_phn = torch.zeros((0,))
@@ -48,6 +50,12 @@ if __name__ == '__main__':
         t_phn = torch.cat([t_phn, phn_g], 0)
         t_spk = torch.cat([t_spk, spk_g], 0)
 
+    my_colors = matplotlib.colors.ListedColormap([
+        (1, 0, 0),
+        (0, 1, 0),
+        (0, 0, 1)
+    ])
+
     plt.figure()
-    plt.scatter(X.numpy()[:,0], X.numpy()[:,1]) 
+    plt.scatter(X.numpy()[:,0], X.numpy()[:,1], c=t_phn.numpy(), cmap=my_colors) 
     plt.show()
