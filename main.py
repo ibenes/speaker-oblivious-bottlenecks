@@ -74,6 +74,8 @@ def epoch(fwd, params, X, target, batch_size=16, shuffle=True):
 
         y = fwd(batch_X)
         loss = criterion(y, batch_t) 
+        _, preds = y.max(dim=1)
+        correct += (preds == batch_t).sum().data[0]
 
         total_loss += loss.data[0] 
 
@@ -120,7 +122,7 @@ if __name__ == '__main__':
     t_spk = t_spk.long()
 
     plotter = Plotter()
-    plotter.plot(X, t_phn, t_spk, name="Raw data")
+    # plotter.plot(X, t_phn, t_spk, name="Raw data")
 
     bn_extractor = torch.nn.Sequential(
         torch.nn.Linear(2, 10),
@@ -139,7 +141,7 @@ if __name__ == '__main__':
         torch.nn.LogSoftmax()
     )
 
-    for i in range(100):
+    for i in range(200):
         ce, acc = epoch(lambda x: phn_decoder(bn_extractor(x)),
                         chain(bn_extractor.parameters(), phn_decoder.parameters()),
                         X, t_phn)
