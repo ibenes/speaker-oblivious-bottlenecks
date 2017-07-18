@@ -7,6 +7,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from torch.autograd import Variable
 
+from itertools import chain
 import atexit
 
 
@@ -43,6 +44,44 @@ class Plotter():
             plt.scatter(spk_set[:,0], spk_set[:,1],
                         c=t_phn.numpy()[mask], cmap=self._cmap, marker=m) 
         plt.show(block=False)
+
+
+def epoch(fwd, params, X, target, batch_size=16, shuffle=True):
+    N = X.size()[0]
+    assert target.size()[0] == N
+
+    train_X = X
+    train_t = target
+    if shuffle:
+        p = np.random.permutation(N)
+        train_X = X.numpy()[p]
+        train_t = target.numpy()[p]
+
+    train_X = torch.from_numpy(train_X)
+    train_t = torch.from_numpy(train_t)
+
+    nb_batches = N // batch_size
+    total = nb_batches * batch_size
+    total_loss = 0.0
+    correct = 0
+
+    criterion = torch.nn.NLLLoss()
+    optim = torch.optim.SGD(params, lr=1e-3)
+
+    for i in range(nb_batches):
+        batch_X = Variable(train_X[i*batch_size:(i+1)*batch_size])
+        batch_t = Variable(train_t[i*batch_size:(i+1)*batch_size])
+
+        y = fwd(batch_X)
+        loss = criterion(y, batch_t) 
+
+        total_loss += loss.data[0] 
+
+        optim.zero_grad()
+        loss.backward()
+        optim.step()
+
+    return total_loss/nb_batches, correct/total
         
 
 if __name__ == '__main__':
@@ -77,6 +116,8 @@ if __name__ == '__main__':
         X = torch.cat([X, X_g], 0)
         t_phn = torch.cat([t_phn, phn_g], 0)
         t_spk = torch.cat([t_spk, spk_g], 0)
+    t_phn = t_phn.long()
+    t_spk = t_spk.long()
 
     plotter = Plotter()
     plotter.plot(X, t_phn, t_spk, name="Raw data")
@@ -89,4 +130,19 @@ if __name__ == '__main__':
         torch.nn.Linear(10, 2),
     )
 
-    plotter.plot(X, t_phn, t_spk, name="BN features", transform=bn_extractor)
+    plotter.plot(X, t_phn, t_spk, name="BN features, random init", transform=bn_extractor)
+
+    phn_decoder = torch.nn.Sequential(
+        torch.nn.Linear(2,10),
+        torch.nn.ReLU(),
+        torch.nn.Linear(10,3),
+        torch.nn.LogSoftmax()
+    )
+
+    for i in range(100):
+        ce, acc = epoch(lambda x: phn_decoder(bn_extractor(x)),
+                        chain(bn_extractor.parameters(), phn_decoder.parameters()),
+                        X, t_phn)
+        print(i, "CE:", ce, "Acc:", acc)
+
+    plotter.plot(X, t_phn, t_spk, name="BN features, PHN optimized", transform=bn_extractor)
