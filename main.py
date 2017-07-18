@@ -141,10 +141,29 @@ if __name__ == '__main__':
         torch.nn.LogSoftmax()
     )
 
+    print("Training PHN network")
     for i in range(200):
         ce, acc = epoch(lambda x: phn_decoder(bn_extractor(x)),
                         chain(bn_extractor.parameters(), phn_decoder.parameters()),
                         X, t_phn)
-        print(i, "CE:", ce, "Acc:", acc)
+        if i % 25 == 24:
+            print(i, "CE:", ce, "Acc:", acc)
 
     plotter.plot(X, t_phn, t_spk, name="BN features, PHN optimized", transform=bn_extractor)
+
+    spk_decoder = torch.nn.Sequential(
+        torch.nn.Linear(2,10),
+        torch.nn.ReLU(),
+        torch.nn.Linear(10,10),
+        torch.nn.ReLU(),
+        torch.nn.Linear(10,3),
+        torch.nn.LogSoftmax()
+    )
+
+    print("Training SPK decoder")
+    for i in range(200):
+        ce, acc = epoch(lambda x: phn_decoder(bn_extractor(x)),
+                        spk_decoder.parameters(),
+                        X, t_phn)
+        if i % 25 == 24:
+            print(i, "CE:", ce, "Acc:", acc)
