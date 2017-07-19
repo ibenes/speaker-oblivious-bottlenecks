@@ -30,6 +30,7 @@ class PhnSpkGenerator():
 
 class Plotter():
     def __init__(self):
+        atexit.register(plt.show)
         self._cmap = matplotlib.colors.ListedColormap([
             (1, 0, 0),
             (0, 1, 0),
@@ -151,7 +152,6 @@ if __name__ == '__main__':
                         help="number of training epochs")
     args = parser.parse_args()
 
-    atexit.register(plt.show)
      
     phn_mus = []
     phn_mus.append(np.asarray([1,1]))
