@@ -10,6 +10,7 @@ from torch.autograd import Variable
 from itertools import chain
 import copy
 import atexit
+import sys
 
 
 class PhnSpkGenerator():
@@ -148,18 +149,18 @@ if __name__ == '__main__':
      
     phn_mus = []
     phn_mus.append(np.asarray([1,1]))
-    phn_mus.append(np.asarray([3,-2]))
-    phn_mus.append(np.asarray([6,4]))
+    phn_mus.append(np.asarray([3.5,2]))
+    phn_mus.append(np.asarray([2,4]))
 
     phn_covs = []
-    phn_covs.append(np.asarray([[1,0], [0,1]]))
-    phn_covs.append(np.asarray([[1,0], [0,1]]))
-    phn_covs.append(np.asarray([[1,0], [0,1]]))
+    phn_covs.append(np.asarray([[0.2,0], [0,0.2]]))
+    phn_covs.append(np.asarray([[0.2,0], [0,0.2]]))
+    phn_covs.append(np.asarray([[0.2,0], [0,0.2]]))
 
     spk_mus = []
-    spk_mus.append(np.asarray([0, 3]))
-    spk_mus.append(np.asarray([0, 6]))
-    spk_mus.append(np.asarray([0, 9]))
+    spk_mus.append(np.asarray([-0.7, 0.7]))
+    spk_mus.append(np.asarray([1, 0]))
+    spk_mus.append(np.asarray([-0.7, -0.7]))
 
     gens = []
     for phn, (phn_mu, phn_cov) in enumerate(zip(phn_mus, phn_covs)):
@@ -179,7 +180,7 @@ if __name__ == '__main__':
     t_spk = t_spk.long()
 
     plotter = Plotter()
-    # plotter.plot(X, t_phn, t_spk, name="Raw data")
+    #plotter.plot(X, t_phn, t_spk, name="Raw data")
 
     bn_extractor = torch.nn.Sequential(
         torch.nn.Linear(2, 10),
