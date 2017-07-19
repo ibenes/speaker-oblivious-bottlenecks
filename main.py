@@ -228,7 +228,7 @@ if __name__ == '__main__':
         if i % 25 == 24:
             print(i, "CE:", ce, "Acc:", acc)
 
-    print("Training jointl, from same init:")
+    print("Training jointly, from same init:")
     for i in range(200):
         phn_ce, phn_acc, spk_ce, spk_acc = dual_target_epoch(
             bn_backup, phn_backup, spk_backup,
