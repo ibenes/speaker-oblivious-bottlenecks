@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from torch.autograd import Variable
 
 from itertools import chain
+import copy
 import atexit
 
 
@@ -86,6 +87,62 @@ def epoch(fwd, params, X, target, batch_size=16, shuffle=True):
     return total_loss/nb_batches, correct/total
         
 
+def dual_target_epoch(common, dec1, dec2, params, X, t1, t2, batch_size=16, shuffle=True):
+    N = X.size()[0]
+    assert t1.size()[0] == N
+    assert t2.size()[0] == N
+
+    train_X = X
+    train_t1 = t1
+    train_t2 = t2
+    if shuffle:
+        p = np.random.permutation(N)
+        train_X = X.numpy()[p]
+        train_t1 = t1.numpy()[p]
+        train_t2 = t2.numpy()[p]
+
+    train_X = torch.from_numpy(train_X)
+    train_t1 = torch.from_numpy(train_t1)
+    train_t2 = torch.from_numpy(train_t2)
+
+    nb_batches = N // batch_size
+    total = nb_batches * batch_size
+    total_loss1 = 0.0
+    total_loss2 = 0.0
+    correct1 = 0
+    correct2 = 0
+
+    criterion = torch.nn.NLLLoss()
+    optim = torch.optim.SGD(params, lr=1e-3)
+
+    for i in range(nb_batches):
+        batch_X = Variable(train_X[i*batch_size:(i+1)*batch_size])
+        batch_t1 = Variable(train_t1[i*batch_size:(i+1)*batch_size])
+        batch_t2 = Variable(train_t2[i*batch_size:(i+1)*batch_size])
+
+        repre = common(batch_X) 
+
+        y1 = dec1(repre)
+        loss1 = criterion(y1, batch_t1) 
+        _, preds1 = y1.max(dim=1)
+        correct1 += (preds1 == batch_t1).sum().data[0]
+        total_loss1 += loss1.data[0] 
+
+        y2 = dec2(repre)
+        loss2 = criterion(y2, batch_t2) 
+        _, preds2 = y2.max(dim=1)
+        correct2 += (preds2 == batch_t2).sum().data[0]
+        total_loss2 += loss2.data[0] 
+
+        complete_loss = loss1 + loss2
+
+        optim.zero_grad()
+        complete_loss.backward()
+        optim.step()
+
+    return total_loss1/nb_batches, correct1/total, total_loss2/nb_batches, correct2/total
+
+
 if __name__ == '__main__':
     atexit.register(plt.show)
      
@@ -132,6 +189,8 @@ if __name__ == '__main__':
         torch.nn.Linear(10, 2),
     )
 
+    bn_backup = copy.deepcopy(bn_extractor)
+
     plotter.plot(X, t_phn, t_spk, name="BN features, random init", transform=bn_extractor)
 
     phn_decoder = torch.nn.Sequential(
@@ -140,6 +199,7 @@ if __name__ == '__main__':
         torch.nn.Linear(10,3),
         torch.nn.LogSoftmax()
     )
+    phn_backup = copy.deepcopy(phn_decoder)
 
     print("Training PHN network")
     for i in range(200):
@@ -154,11 +214,11 @@ if __name__ == '__main__':
     spk_decoder = torch.nn.Sequential(
         torch.nn.Linear(2,10),
         torch.nn.ReLU(),
-        torch.nn.Linear(10,10),
-        torch.nn.ReLU(),
         torch.nn.Linear(10,3),
         torch.nn.LogSoftmax()
     )
+    spk_backup = copy.deepcopy(spk_decoder)
+
 
     print("Training SPK decoder")
     for i in range(200):
@@ -167,3 +227,14 @@ if __name__ == '__main__':
                         X, t_phn)
         if i % 25 == 24:
             print(i, "CE:", ce, "Acc:", acc)
+
+    print("Training jointl, from same init:")
+    for i in range(200):
+        phn_ce, phn_acc, spk_ce, spk_acc = dual_target_epoch(
+            bn_backup, phn_backup, spk_backup,
+            chain(bn_backup.parameters(), phn_backup.parameters(), spk_backup.parameters()),
+            X, t_phn, t_spk
+        )
+        if i % 25 == 24:
+            print(i, "phn CE:", phn_ce, "phn Acc:", phn_acc, "spk CE:", spk_ce, "spk Acc:", spk_acc)
+    plotter.plot(X, t_phn, t_spk, name="BN features, PHN+SPK optimized", transform=bn_backup)
