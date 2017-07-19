@@ -222,9 +222,9 @@ if __name__ == '__main__':
 
     print("Training SPK decoder")
     for i in range(200):
-        ce, acc = epoch(lambda x: phn_decoder(bn_extractor(x)),
+        ce, acc = epoch(lambda x: spk_decoder(bn_extractor(x)),
                         spk_decoder.parameters(),
-                        X, t_phn)
+                        X, t_spk)
         if i % 25 == 24:
             print(i, "CE:", ce, "Acc:", acc)
 
