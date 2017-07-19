@@ -207,7 +207,8 @@ if __name__ == '__main__':
                         chain(bn_extractor.parameters(), phn_decoder.parameters()),
                         X, t_phn)
         if i % 25 == 24:
-            print(i, "CE:", ce, "Acc:", acc)
+            string = "{:>3} phn CE: {:.3f}, phn Acc: {:2.2f}".format(i, ce, 100.0*acc)
+            print(string)
 
     plotter.plot(X, t_phn, t_spk, name="BN features, PHN optimized", transform=bn_extractor)
 
@@ -226,7 +227,8 @@ if __name__ == '__main__':
                         spk_decoder.parameters(),
                         X, t_spk)
         if i % 25 == 24:
-            print(i, "CE:", ce, "Acc:", acc)
+            string = "{:>3} spk CE: {:.3f}, spk Acc: {:2.2f}".format(i, ce, 100.0*acc)
+            print(string)
 
     print("Training jointly, from same init:")
     for i in range(200):
@@ -236,5 +238,8 @@ if __name__ == '__main__':
             X, t_phn, t_spk
         )
         if i % 25 == 24:
-            print(i, "phn CE:", phn_ce, "phn Acc:", phn_acc, "spk CE:", spk_ce, "spk Acc:", spk_acc)
+            string = "{:>3} phn CE: {:.3f}, phn Acc: {:2.2f}, spk CE: {:.3f}, spk Acc: {:2.2f}".format(
+                i, phn_ce, 100.0*phn_acc, spk_ce, 100.0*spk_acc
+            )
+            print(string)
     plotter.plot(X, t_phn, t_spk, name="BN features, PHN+SPK optimized", transform=bn_backup)
