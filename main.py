@@ -146,13 +146,7 @@ def dual_target_epoch(common, dec1, dec2, params, X, t1, t2, batch_size=16, shuf
     return total_loss1/nb_batches, correct1/total, total_loss2/nb_batches, correct2/total
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--nb-epochs", type=int, default=200,
-                        help="number of training epochs")
-    args = parser.parse_args()
-
-     
+def instantiate_generators():
     phn_mus = []
     phn_mus.append(np.asarray([1,1]))
     phn_mus.append(np.asarray([3.5,2]))
@@ -172,6 +166,16 @@ if __name__ == '__main__':
     for phn, (phn_mu, phn_cov) in enumerate(zip(phn_mus, phn_covs)):
         for spk, spk_mu in enumerate(spk_mus):
             gens.append(PhnSpkGenerator(phn_mu+spk_mu, phn_cov, phn, spk))
+
+    return gens
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--nb-epochs", type=int, default=200,
+                        help="number of training epochs")
+    args = parser.parse_args()
+
+    gens = instantiate_generators() 
         
     X = torch.zeros((0, 2))
     t_phn = torch.zeros((0,))
