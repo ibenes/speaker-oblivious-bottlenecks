@@ -11,6 +11,7 @@ from itertools import chain
 import copy
 import atexit
 import sys
+import argparse
 
 
 class PhnSpkGenerator():
@@ -145,6 +146,11 @@ def dual_target_epoch(common, dec1, dec2, params, X, t1, t2, batch_size=16, shuf
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--nb-epochs", type=int, default=200,
+                        help="number of training epochs")
+    args = parser.parse_args()
+
     atexit.register(plt.show)
      
     phn_mus = []
@@ -203,7 +209,7 @@ if __name__ == '__main__':
     phn_backup = copy.deepcopy(phn_decoder)
 
     print("Training PHN network")
-    for i in range(200):
+    for i in range(args.nb_epochs):
         ce, acc = epoch(lambda x: phn_decoder(bn_extractor(x)),
                         chain(bn_extractor.parameters(), phn_decoder.parameters()),
                         X, t_phn)
@@ -223,7 +229,7 @@ if __name__ == '__main__':
 
 
     print("Training SPK decoder")
-    for i in range(200):
+    for i in range(args.nb_epochs):
         ce, acc = epoch(lambda x: spk_decoder(bn_extractor(x)),
                         spk_decoder.parameters(),
                         X, t_spk)
@@ -232,7 +238,7 @@ if __name__ == '__main__':
             print(string)
 
     print("Training jointly, from same init:")
-    for i in range(200):
+    for i in range(args.nb_epochs):
         phn_ce, phn_acc, spk_ce, spk_acc = dual_target_epoch(
             bn_backup, phn_backup, spk_backup,
             chain(bn_backup.parameters(), phn_backup.parameters(), spk_backup.parameters()),
