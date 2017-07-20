@@ -91,7 +91,7 @@ def epoch(fwd, params, X, target, batch_size=16, shuffle=True, train=True):
     return total_loss/nb_batches, correct/total
 
 
-def multi_target_epoch(common, decoders, params, X, targets, batch_size=16, shuffle=True):
+def multi_target_epoch(common, decoders, params, X, targets, batch_size=16, shuffle=True, train=True):
     assert len(decoders) == len(targets)
     N = X.size()[0]
     for t in targets:
@@ -136,13 +136,13 @@ def multi_target_epoch(common, decoders, params, X, targets, batch_size=16, shuf
             nb_correct[i] += (preds == t).sum().data[0]
             cum_losses[i] += loss.data[0]
 
-        complete_loss = sum(losses)
+        if train:
+            complete_loss = sum(losses)
+            optim.zero_grad()
+            complete_loss.backward()
+            optim.step()
 
-        optim.zero_grad()
-        complete_loss.backward()
-        optim.step()
-
-    return cum_losses[0]/nb_batches, nb_correct[0]/total, cum_losses[1]/nb_batches, nb_correct[1]/total
+    return [cl/nb_batches for cl in cum_losses], [c/total for c in nb_correct]
 
 def instantiate_generators():
     phn_mus = []
@@ -182,15 +182,15 @@ def generate(gens, N_per_cluster):
 
     return X, t_phn, t_spk
 
-def train(fwd, params, X, t, nb_epochs, report_interval=25):
+def train(common, decoders, params, X, ts, nb_epochs, report_interval=25):
     params = list(params)
     for i in range(nb_epochs):
-        ce, acc = epoch(fwd, params, X, t)
-        val_ce, val_acc = epoch(fwd, params, X, t, train=False)
+        ce, acc = multi_target_epoch(common, decoders, params, X, ts)
+        val_ce, val_acc = multi_target_epoch(common, decoders, params, X, ts, train=False)
 
         if i % report_interval == report_interval - 1:
             string = "{:>3} phn CE: {:.3f}, phn Acc: {:2.2f} | Valid: CE {:.3f} Acc {:.3f}".format(
-                i, ce, 100.0*acc, val_ce, 100.0*val_acc
+                i, ce[0], 100.0*acc[0], val_ce[0], 100.0*val_acc[0]
             )
             print(string)
 
@@ -229,9 +229,9 @@ if __name__ == '__main__':
     phn_backup = copy.deepcopy(phn_decoder)
 
     print("Training PHN network")
-    train(lambda x: phn_decoder(bn_extractor(x)), 
+    train(bn_extractor, [phn_decoder],
           chain(bn_extractor.parameters(), phn_decoder.parameters()),
-          X, t_phn, args.nb_epochs)
+          X, [t_phn], args.nb_epochs)
 
     plotter.plot(X, t_phn, t_spk, name="BN features, PHN optimized", transform=bn_extractor)
 
@@ -244,19 +244,19 @@ if __name__ == '__main__':
     spk_backup = copy.deepcopy(spk_decoder)
 
     print("Training SPK decoder")
-    train(lambda x: spk_decoder(bn_extractor(x)), 
-          spk_decoder.parameters(), X, t_spk, args.nb_epochs)
+    train(bn_extractor, [spk_decoder],
+          spk_decoder.parameters(), X, [t_spk], args.nb_epochs)
 
     print("Training jointly, from same init:")
     for i in range(args.nb_epochs):
-        phn_ce, phn_acc, spk_ce, spk_acc = multi_target_epoch(
+        ces, accs= multi_target_epoch(
             bn_backup, [phn_backup, spk_backup],
             chain(bn_backup.parameters(), phn_backup.parameters(), spk_backup.parameters()),
             X, [t_phn, t_spk]
         )
         if i % 25 == 24:
             string = "{:>3} phn CE: {:.3f}, phn Acc: {:2.2f}, spk CE: {:.3f}, spk Acc: {:2.2f}".format(
-                i, phn_ce, 100.0*phn_acc, spk_ce, 100.0*spk_acc
+                i, ces[0], 100.0*accs[0], ces[1], 100.0*accs[1]
             )
             print(string)
     plotter.plot(X, t_phn, t_spk, name="BN features, PHN+SPK optimized", transform=bn_backup)
