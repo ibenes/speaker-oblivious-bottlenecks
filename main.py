@@ -229,9 +229,20 @@ if __name__ == '__main__':
     phn_backup = copy.deepcopy(phn_decoder)
 
     print("Training PHN network")
-    train(bn_extractor, [phn_decoder],
-          chain(bn_extractor.parameters(), phn_decoder.parameters()),
-          X, [t_phn], args.nb_epochs)
+    for i in range(args.nb_epochs):
+        ce, acc = multi_target_epoch(bn_extractor, [phn_decoder],
+            chain(bn_extractor.parameters(), phn_decoder.parameters()), X, [t_phn])
+        val_ce, val_acc = multi_target_epoch(bn_extractor, [phn_decoder],
+            chain(bn_extractor.parameters(), phn_decoder.parameters()), X, [t_phn], train=False)
+
+        if i % 25 == 25 - 1:
+            string = "{:>3} phn CE: {:.3f}, phn Acc: {:2.2f} | Valid: CE {:.3f} Acc {:.3f}".format(
+                i, ce[0], 100.0*acc[0], val_ce[0], 100.0*val_acc[0]
+            )
+            print(string)
+    # train(bn_extractor, [phn_decoder],
+    #       chain(bn_extractor.parameters(), phn_decoder.parameters()),
+    #       X, [t_phn], args.nb_epochs)
 
     plotter.plot(X, t_phn, t_spk, name="BN features, PHN optimized", transform=bn_extractor)
 
@@ -244,8 +255,19 @@ if __name__ == '__main__':
     spk_backup = copy.deepcopy(spk_decoder)
 
     print("Training SPK decoder")
-    train(bn_extractor, [spk_decoder],
-          spk_decoder.parameters(), X, [t_spk], args.nb_epochs)
+    for i in range(args.nb_epochs):
+        ce, acc = multi_target_epoch(bn_extractor, [spk_decoder],
+            spk_decoder.parameters(), X, [t_spk])
+        val_ce, val_acc = multi_target_epoch(bn_extractor, [spk_decoder],
+            spk_decoder.parameters(), X, [t_spk], train=False)
+
+        if i % 25 == 25 - 1:
+            string = "{:>3} phn CE: {:.3f}, phn Acc: {:2.2f} | Valid: CE {:.3f} Acc {:.3f}".format(
+                i, ce[0], 100.0*acc[0], val_ce[0], 100.0*val_acc[0]
+            )
+            print(string)
+    # train(bn_extractor, [spk_decoder],
+    #       spk_decoder.parameters(), X, [t_spk], args.nb_epochs)
 
     print("Training jointly, from same init:")
     for i in range(args.nb_epochs):
