@@ -50,7 +50,7 @@ class Plotter():
         plt.show(block=False)
 
 
-def epoch(fwd, params, X, target, batch_size=16, shuffle=True, train=True):
+def epoch(fwd, optim, X, target, batch_size=16, shuffle=True, train=True):
     N = X.size()[0]
     assert target.size()[0] == N
 
@@ -70,7 +70,6 @@ def epoch(fwd, params, X, target, batch_size=16, shuffle=True, train=True):
     correct = 0
 
     criterion = torch.nn.NLLLoss()
-    optim = torch.optim.SGD(params, lr=1e-3)
 
     for i in range(nb_batches):
         batch_X = Variable(train_X[i*batch_size:(i+1)*batch_size])
@@ -117,7 +116,6 @@ def multi_target_epoch(common, decoders, params, X, targets, batch_size=16, shuf
         nb_correct.append(0)
 
     criterion = torch.nn.NLLLoss()
-    optim = torch.optim.SGD(params, lr=1e-3)
 
     for i in range(nb_batches):
         batch_X = Variable(train_X[i*batch_size:(i+1)*batch_size])
@@ -229,11 +227,10 @@ if __name__ == '__main__':
     phn_backup = copy.deepcopy(phn_decoder)
 
     print("Training PHN network")
+    optim = torch.optim.SGD(chain(bn_extractor.parameters(), phn_decoder.parameters()), lr=1e-3)
     for i in range(args.nb_epochs):
-        ce, acc = multi_target_epoch(bn_extractor, [phn_decoder],
-            chain(bn_extractor.parameters(), phn_decoder.parameters()), X, [t_phn])
-        val_ce, val_acc = multi_target_epoch(bn_extractor, [phn_decoder],
-            chain(bn_extractor.parameters(), phn_decoder.parameters()), X, [t_phn], train=False)
+        ce, acc = multi_target_epoch(bn_extractor, [phn_decoder], optim , X, [t_phn])
+        val_ce, val_acc = multi_target_epoch(bn_extractor, [phn_decoder], optim, X, [t_phn], train=False)
 
         if i % 25 == 25 - 1:
             string = "{:>3} phn CE: {:.3f}, phn Acc: {:2.2f} | Valid: CE {:.3f} Acc {:.3f}".format(
@@ -255,11 +252,10 @@ if __name__ == '__main__':
     spk_backup = copy.deepcopy(spk_decoder)
 
     print("Training SPK decoder")
+    optim = torch.optim.SGD(spk_decoder.parameters(), lr=1e-3)
     for i in range(args.nb_epochs):
-        ce, acc = multi_target_epoch(bn_extractor, [spk_decoder],
-            spk_decoder.parameters(), X, [t_spk])
-        val_ce, val_acc = multi_target_epoch(bn_extractor, [spk_decoder],
-            spk_decoder.parameters(), X, [t_spk], train=False)
+        ce, acc = multi_target_epoch(bn_extractor, [spk_decoder], optim, X, [t_spk])
+        val_ce, val_acc = multi_target_epoch(bn_extractor, [spk_decoder], optim, X, [t_spk], train=False)
 
         if i % 25 == 25 - 1:
             string = "{:>3} phn CE: {:.3f}, phn Acc: {:2.2f} | Valid: CE {:.3f} Acc {:.3f}".format(
@@ -270,12 +266,9 @@ if __name__ == '__main__':
     #       spk_decoder.parameters(), X, [t_spk], args.nb_epochs)
 
     print("Training jointly, from same init:")
+    optim = torch.optim.SGD(chain(bn_backup.parameters(), phn_backup.parameters(), spk_backup.parameters()), lr=1e-3)
     for i in range(args.nb_epochs):
-        ces, accs= multi_target_epoch(
-            bn_backup, [phn_backup, spk_backup],
-            chain(bn_backup.parameters(), phn_backup.parameters(), spk_backup.parameters()),
-            X, [t_phn, t_spk]
-        )
+        ces, accs= multi_target_epoch(bn_backup, [phn_backup, spk_backup], optim, X, [t_phn, t_spk])
         if i % 25 == 24:
             string = "{:>3} phn CE: {:.3f}, phn Acc: {:2.2f}, spk CE: {:.3f}, spk Acc: {:2.2f}".format(
                 i, ces[0], 100.0*accs[0], ces[1], 100.0*accs[1]
