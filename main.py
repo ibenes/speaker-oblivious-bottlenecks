@@ -50,7 +50,7 @@ class Plotter():
         plt.show(block=False)
 
 
-def epoch(fwd, params, X, target, batch_size=16, shuffle=True):
+def epoch(fwd, params, X, target, batch_size=16, shuffle=True, train=True):
     N = X.size()[0]
     assert target.size()[0] == N
 
@@ -83,12 +83,13 @@ def epoch(fwd, params, X, target, batch_size=16, shuffle=True):
 
         total_loss += loss.data[0] 
 
-        optim.zero_grad()
-        loss.backward()
-        optim.step()
+        if train:
+            optim.zero_grad()
+            loss.backward()
+            optim.step()
 
     return total_loss/nb_batches, correct/total
-        
+
 
 def dual_target_epoch(common, decoders, params, X, targets, batch_size=16, shuffle=True):
     assert len(decoders) == len(targets)
@@ -191,6 +192,7 @@ if __name__ == '__main__':
     gens = instantiate_generators() 
         
     X, t_phn, t_spk = generate(gens, 100)
+    X_val, t_phn_val, t_spk_val = generate(gens, 100)
 
     plotter = Plotter()
     #plotter.plot(X, t_phn, t_spk, name="Raw data")
@@ -220,8 +222,13 @@ if __name__ == '__main__':
         ce, acc = epoch(lambda x: phn_decoder(bn_extractor(x)),
                         chain(bn_extractor.parameters(), phn_decoder.parameters()),
                         X, t_phn)
+        val_ce, val_acc = epoch(lambda x: phn_decoder(bn_extractor(x)),
+                        chain(bn_extractor.parameters(), phn_decoder.parameters()),
+                        X, t_phn, train=False)
         if i % 25 == 24:
-            string = "{:>3} phn CE: {:.3f}, phn Acc: {:2.2f}".format(i, ce, 100.0*acc)
+            string = "{:>3} phn CE: {:.3f}, phn Acc: {:2.2f} | Valid: CE {:.3f} Acc {:.3f}".format(
+                i, ce, 100.0*acc, val_ce, 100.0*val_acc
+            )
             print(string)
 
     plotter.plot(X, t_phn, t_spk, name="BN features, PHN optimized", transform=bn_extractor)
@@ -238,10 +245,13 @@ if __name__ == '__main__':
     print("Training SPK decoder")
     for i in range(args.nb_epochs):
         ce, acc = epoch(lambda x: spk_decoder(bn_extractor(x)),
-                        spk_decoder.parameters(),
-                        X, t_spk)
+                        spk_decoder.parameters(), X, t_spk)
+        val_ce, val_acc = epoch(lambda x: spk_decoder(bn_extractor(x)),
+                        spk_decoder.parameters(), X, t_spk)
         if i % 25 == 24:
-            string = "{:>3} spk CE: {:.3f}, spk Acc: {:2.2f}".format(i, ce, 100.0*acc)
+            string = "{:>3} spk CE: {:.3f}, spk Acc: {:2.2f} | Valid: CE {:.3f} Acc {:.3f}".format(
+                i, ce, 100.0*acc, val_ce, 100.0*val_acc
+            )
             print(string)
 
     print("Training jointly, from same init:")
