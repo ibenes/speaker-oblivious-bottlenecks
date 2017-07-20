@@ -7,7 +7,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from torch.autograd import Variable
 
-from itertools import chain
+import itertools
 import copy
 import atexit
 import sys
@@ -50,58 +50,17 @@ class Plotter():
         plt.show(block=False)
 
 
-def epoch(fwd, optim, X, target, batch_size=16, shuffle=True, train=True):
-    N = X.size()[0]
-    assert target.size()[0] == N
-
-    train_X = X
-    train_t = target
-    if shuffle:
-        p = np.random.permutation(N)
-        train_X = X.numpy()[p]
-        train_t = target.numpy()[p]
-
-    train_X = torch.from_numpy(train_X)
-    train_t = torch.from_numpy(train_t)
-
-    nb_batches = N // batch_size
-    total = nb_batches * batch_size
-    total_loss = 0.0
-    correct = 0
-
-    criterion = torch.nn.NLLLoss()
-
-    for i in range(nb_batches):
-        batch_X = Variable(train_X[i*batch_size:(i+1)*batch_size])
-        batch_t = Variable(train_t[i*batch_size:(i+1)*batch_size])
-
-        y = fwd(batch_X)
-        loss = criterion(y, batch_t) 
-        _, preds = y.max(dim=1)
-        correct += (preds == batch_t).sum().data[0]
-
-        total_loss += loss.data[0] 
-
-        if train:
-            optim.zero_grad()
-            loss.backward()
-            optim.step()
-
-    return total_loss/nb_batches, correct/total
-
-
-def multi_target_epoch(common, decoders, params, X, targets, batch_size=16, shuffle=True, train=True):
+def multi_target_epoch(common, decoders, optim, X, targets, batch_size=16, shuffle=True, train=True):
     assert len(decoders) == len(targets)
     N = X.size()[0]
     for t in targets:
         assert t.size()[0] == N
 
-    # TODO: clone?
-    train_X = X
-    train_targets = targets
+    train_X = copy.deepcopy(X)
+    train_targets = copy.deepcopy(targets)
     if shuffle:
         p = np.random.permutation(N)
-        train_X = X.numpy()[p]
+        train_X = train_X.numpy()[p]
         train_X = torch.from_numpy(train_X)
         for i, t in enumerate(train_targets):
             train_targets[i] = torch.from_numpy(t.numpy()[p])
@@ -181,13 +140,14 @@ def generate(gens, N_per_cluster):
     return X, t_phn, t_spk
 
 def train(common, decoders, params, X, ts, nb_epochs, report_interval=25):
-    params = list(params)
+    optim = torch.optim.SGD(params, lr=1e-3)
+    # optim = torch.optim.SGD(itertools.chain(bn_extractor.parameters(), phn_decoder.parameters()), lr=1e-3)
     for i in range(nb_epochs):
-        ce, acc = multi_target_epoch(common, decoders, params, X, ts)
-        val_ce, val_acc = multi_target_epoch(common, decoders, params, X, ts, train=False)
+        ce, acc = multi_target_epoch(common, decoders, optim, X, ts)
+        val_ce, val_acc = multi_target_epoch(common, decoders, optim, X, ts, train=False)
 
         if i % report_interval == report_interval - 1:
-            string = "{:>3} phn CE: {:.3f}, phn Acc: {:2.2f} | Valid: CE {:.3f} Acc {:.3f}".format(
+            string = "Train {:>3} CE: {:.3f}, Acc: {:2.2f} | Valid: CE {:.3f}, Acc {:.3f}".format(
                 i, ce[0], 100.0*acc[0], val_ce[0], 100.0*val_acc[0]
             )
             print(string)
@@ -204,7 +164,7 @@ if __name__ == '__main__':
     X_val, t_phn_val, t_spk_val = generate(gens, 100)
 
     plotter = Plotter()
-    #plotter.plot(X, t_phn, t_spk, name="Raw data")
+    plotter.plot(X, t_phn, t_spk, name="Raw data")
 
     bn_extractor = torch.nn.Sequential(
         torch.nn.Linear(2, 10),
@@ -227,19 +187,9 @@ if __name__ == '__main__':
     phn_backup = copy.deepcopy(phn_decoder)
 
     print("Training PHN network")
-    optim = torch.optim.SGD(chain(bn_extractor.parameters(), phn_decoder.parameters()), lr=1e-3)
-    for i in range(args.nb_epochs):
-        ce, acc = multi_target_epoch(bn_extractor, [phn_decoder], optim , X, [t_phn])
-        val_ce, val_acc = multi_target_epoch(bn_extractor, [phn_decoder], optim, X, [t_phn], train=False)
-
-        if i % 25 == 25 - 1:
-            string = "{:>3} phn CE: {:.3f}, phn Acc: {:2.2f} | Valid: CE {:.3f} Acc {:.3f}".format(
-                i, ce[0], 100.0*acc[0], val_ce[0], 100.0*val_acc[0]
-            )
-            print(string)
-    # train(bn_extractor, [phn_decoder],
-    #       chain(bn_extractor.parameters(), phn_decoder.parameters()),
-    #       X, [t_phn], args.nb_epochs)
+    train(bn_extractor, [phn_decoder],
+          itertools.chain(bn_extractor.parameters(), phn_decoder.parameters()),
+          X, [t_phn], args.nb_epochs)
 
     plotter.plot(X, t_phn, t_spk, name="BN features, PHN optimized", transform=bn_extractor)
 
@@ -252,21 +202,11 @@ if __name__ == '__main__':
     spk_backup = copy.deepcopy(spk_decoder)
 
     print("Training SPK decoder")
-    optim = torch.optim.SGD(spk_decoder.parameters(), lr=1e-3)
-    for i in range(args.nb_epochs):
-        ce, acc = multi_target_epoch(bn_extractor, [spk_decoder], optim, X, [t_spk])
-        val_ce, val_acc = multi_target_epoch(bn_extractor, [spk_decoder], optim, X, [t_spk], train=False)
-
-        if i % 25 == 25 - 1:
-            string = "{:>3} phn CE: {:.3f}, phn Acc: {:2.2f} | Valid: CE {:.3f} Acc {:.3f}".format(
-                i, ce[0], 100.0*acc[0], val_ce[0], 100.0*val_acc[0]
-            )
-            print(string)
-    # train(bn_extractor, [spk_decoder],
-    #       spk_decoder.parameters(), X, [t_spk], args.nb_epochs)
+    train(bn_extractor, [spk_decoder],
+          spk_decoder.parameters(), X, [t_spk], args.nb_epochs)
 
     print("Training jointly, from same init:")
-    optim = torch.optim.SGD(chain(bn_backup.parameters(), phn_backup.parameters(), spk_backup.parameters()), lr=1e-3)
+    optim = torch.optim.SGD(itertools.chain(bn_backup.parameters(), phn_backup.parameters(), spk_backup.parameters()), lr=1e-3)
     for i in range(args.nb_epochs):
         ces, accs= multi_target_epoch(bn_backup, [phn_backup, spk_backup], optim, X, [t_phn, t_spk])
         if i % 25 == 24:
