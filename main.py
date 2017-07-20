@@ -91,7 +91,7 @@ def epoch(fwd, params, X, target, batch_size=16, shuffle=True, train=True):
     return total_loss/nb_batches, correct/total
 
 
-def dual_target_epoch(common, decoders, params, X, targets, batch_size=16, shuffle=True):
+def multi_target_epoch(common, decoders, params, X, targets, batch_size=16, shuffle=True):
     assert len(decoders) == len(targets)
     N = X.size()[0]
     for t in targets:
@@ -249,7 +249,7 @@ if __name__ == '__main__':
 
     print("Training jointly, from same init:")
     for i in range(args.nb_epochs):
-        phn_ce, phn_acc, spk_ce, spk_acc = dual_target_epoch(
+        phn_ce, phn_acc, spk_ce, spk_acc = multi_target_epoch(
             bn_backup, [phn_backup, spk_backup],
             chain(bn_backup.parameters(), phn_backup.parameters(), spk_backup.parameters()),
             X, [t_phn, t_spk]
