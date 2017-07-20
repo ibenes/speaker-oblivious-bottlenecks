@@ -182,6 +182,17 @@ def generate(gens, N_per_cluster):
 
     return X, t_phn, t_spk
 
+def train(fwd, params, X, t, nb_epochs, report_interval=25):
+    params = list(params)
+    for i in range(nb_epochs):
+        ce, acc = epoch(fwd, params, X, t)
+        val_ce, val_acc = epoch(fwd, params, X, t, train=False)
+
+        if i % report_interval == report_interval - 1:
+            string = "{:>3} phn CE: {:.3f}, phn Acc: {:2.2f} | Valid: CE {:.3f} Acc {:.3f}".format(
+                i, ce, 100.0*acc, val_ce, 100.0*val_acc
+            )
+            print(string)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -218,18 +229,9 @@ if __name__ == '__main__':
     phn_backup = copy.deepcopy(phn_decoder)
 
     print("Training PHN network")
-    for i in range(args.nb_epochs):
-        ce, acc = epoch(lambda x: phn_decoder(bn_extractor(x)),
-                        chain(bn_extractor.parameters(), phn_decoder.parameters()),
-                        X, t_phn)
-        val_ce, val_acc = epoch(lambda x: phn_decoder(bn_extractor(x)),
-                        chain(bn_extractor.parameters(), phn_decoder.parameters()),
-                        X, t_phn, train=False)
-        if i % 25 == 24:
-            string = "{:>3} phn CE: {:.3f}, phn Acc: {:2.2f} | Valid: CE {:.3f} Acc {:.3f}".format(
-                i, ce, 100.0*acc, val_ce, 100.0*val_acc
-            )
-            print(string)
+    train(lambda x: phn_decoder(bn_extractor(x)), 
+          chain(bn_extractor.parameters(), phn_decoder.parameters()),
+          X, t_phn, args.nb_epochs)
 
     plotter.plot(X, t_phn, t_spk, name="BN features, PHN optimized", transform=bn_extractor)
 
@@ -241,18 +243,9 @@ if __name__ == '__main__':
     )
     spk_backup = copy.deepcopy(spk_decoder)
 
-
     print("Training SPK decoder")
-    for i in range(args.nb_epochs):
-        ce, acc = epoch(lambda x: spk_decoder(bn_extractor(x)),
-                        spk_decoder.parameters(), X, t_spk)
-        val_ce, val_acc = epoch(lambda x: spk_decoder(bn_extractor(x)),
-                        spk_decoder.parameters(), X, t_spk)
-        if i % 25 == 24:
-            string = "{:>3} spk CE: {:.3f}, spk Acc: {:2.2f} | Valid: CE {:.3f} Acc {:.3f}".format(
-                i, ce, 100.0*acc, val_ce, 100.0*val_acc
-            )
-            print(string)
+    train(lambda x: spk_decoder(bn_extractor(x)), 
+          spk_decoder.parameters(), X, t_spk, args.nb_epochs)
 
     print("Training jointly, from same init:")
     for i in range(args.nb_epochs):
