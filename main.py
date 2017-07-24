@@ -46,7 +46,7 @@ class Plotter():
             spk_set = Variable(torch.from_numpy(spk_set).float())
             spk_set = transform(spk_set).data.numpy()
             plt.scatter(spk_set[:,0], spk_set[:,1],
-                        c=t_phn.numpy()[mask], cmap=self._cmap, marker=m) 
+                        c=phn.numpy()[mask], cmap=self._cmap, marker=m) 
         plt.show(block=False)
 
 def create_models(bne_width):
@@ -241,6 +241,7 @@ if __name__ == '__main__':
           args.nb_epochs)
 
     plotter.plot(X, t_phn, t_spk, name="BN features, PHN+SPK optimized", transform=bn_extractor)
+    plotter.plot(X, t_spk, t_phn, name="BN features, PHN+SPK optimized, inverted color-marker", transform=bn_extractor)
 
     bn_extractor = copy.deepcopy(bn_extractor_init)
     spk_decoder = copy.deepcopy(spk_decoder_init)
@@ -254,3 +255,4 @@ if __name__ == '__main__':
           args.nb_epochs)
 
     plotter.plot(X, t_phn, t_spk, name="BN features, PHN-SPK optimized", transform=bn_extractor)
+    plotter.plot(X, t_spk, t_phn, name="BN features, PHN-SPK optimized, inverter color-marker", transform=bn_extractor)
