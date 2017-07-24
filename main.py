@@ -176,7 +176,7 @@ def grouping_reporter(epoch, losses, accs, val_losses, val_accs):
 
 def train(common, decoders, params, train_data, val_data, nb_epochs, report_interval=25,
         reporter=grouping_reporter):
-    optim = torch.optim.SGD(params, lr=1e-3)
+    optim = torch.optim.Adam(params, lr=1e-3)
     for i in range(nb_epochs):
         ce, acc = multi_target_epoch(common, decoders, optim, train_data[0], train_data[1])
         val_ce, val_acc = multi_target_epoch(common, decoders, optim, val_data[0], val_data[1], train=False)
@@ -184,6 +184,13 @@ def train(common, decoders, params, train_data, val_data, nb_epochs, report_inte
         if i % report_interval == report_interval - 1:
             string = reporter(i, ce, acc, val_ce, val_acc)
             print(string)
+
+class GradReverter(torch.autograd.Function):
+    def forward(self, x):
+        return x
+
+    def backward(self, g):
+        return -g
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -234,3 +241,16 @@ if __name__ == '__main__':
           args.nb_epochs)
 
     plotter.plot(X, t_phn, t_spk, name="BN features, PHN+SPK optimized", transform=bn_extractor)
+
+    bn_extractor = copy.deepcopy(bn_extractor_init)
+    spk_decoder = copy.deepcopy(spk_decoder_init)
+    phn_decoder = copy.deepcopy(phn_decoder_init)
+    grad_reverter = GradReverter()
+
+    print("Training in disconcert, from same init:")
+    train(bn_extractor, [phn_decoder, lambda x: spk_decoder(grad_reverter(x))],
+          itertools.chain(bn_extractor.parameters(), phn_decoder.parameters(), spk_decoder.parameters()),
+          (X, [t_phn, t_spk]), (X_val, [t_phn_val, t_spk_val]),
+          args.nb_epochs)
+
+    plotter.plot(X, t_phn, t_spk, name="BN features, PHN-SPK optimized", transform=bn_extractor)
