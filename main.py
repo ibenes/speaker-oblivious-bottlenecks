@@ -166,12 +166,13 @@ if __name__ == '__main__':
     plotter = Plotter()
     plotter.plot(X, t_phn, t_spk, name="Raw data")
 
+    bn_width = 10
     bn_extractor = torch.nn.Sequential(
-        torch.nn.Linear(2, 10),
+        torch.nn.Linear(2, bn_width),
         torch.nn.ReLU(),
-        torch.nn.Linear(10, 10),
+        torch.nn.Linear(bn_width, bn_width),
         torch.nn.ReLU(),
-        torch.nn.Linear(10, 2),
+        torch.nn.Linear(bn_width, 2),
     )
 
     bn_backup = copy.deepcopy(bn_extractor)
