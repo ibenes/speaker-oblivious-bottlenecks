@@ -49,6 +49,31 @@ class Plotter():
                         c=t_phn.numpy()[mask], cmap=self._cmap, marker=m) 
         plt.show(block=False)
 
+def create_models(bne_width):
+    bn_extractor_init = torch.nn.Sequential(
+        torch.nn.Linear(2, bne_width),
+        torch.nn.ReLU(),
+        torch.nn.Linear(bne_width, bne_width),
+        torch.nn.ReLU(),
+        torch.nn.Linear(bne_width, 2),
+    )
+    
+    phn_decoder_init = torch.nn.Sequential(
+        torch.nn.Linear(2,10),
+        torch.nn.ReLU(),
+        torch.nn.Linear(10,3),
+        torch.nn.LogSoftmax()
+    )
+
+    spk_decoder_init = torch.nn.Sequential(
+        torch.nn.Linear(2,10),
+        torch.nn.ReLU(),
+        torch.nn.Linear(10,3),
+        torch.nn.LogSoftmax()
+    )
+
+    return bn_extractor_init, phn_decoder_init, spk_decoder_init
+
 
 def multi_target_epoch(common, decoders, optim, X, targets, batch_size=16, shuffle=True, train=True):
     assert len(decoders) == len(targets)
@@ -176,26 +201,11 @@ if __name__ == '__main__':
     plotter = Plotter()
     plotter.plot(X, t_phn, t_spk, name="Raw data")
 
-    bn_width = 100
-    bn_extractor = torch.nn.Sequential(
-        torch.nn.Linear(2, args.bne_width),
-        torch.nn.ReLU(),
-        torch.nn.Linear(args.bne_width, args.bne_width),
-        torch.nn.ReLU(),
-        torch.nn.Linear(args.bne_width, 2),
-    )
-
-    bn_backup = copy.deepcopy(bn_extractor)
-
+    bn_extractor_init, phn_decoder_init, spk_decoder_init = create_models(args.bne_width)
+    bn_extractor = copy.deepcopy(bn_extractor_init)
     plotter.plot(X, t_phn, t_spk, name="BN features, random init", transform=bn_extractor)
 
-    phn_decoder = torch.nn.Sequential(
-        torch.nn.Linear(2,10),
-        torch.nn.ReLU(),
-        torch.nn.Linear(10,3),
-        torch.nn.LogSoftmax()
-    )
-    phn_backup = copy.deepcopy(phn_decoder)
+    phn_decoder = copy.deepcopy(phn_decoder_init)
 
     print("Training PHN network")
     train(bn_extractor, [phn_decoder],
@@ -205,13 +215,7 @@ if __name__ == '__main__':
 
     plotter.plot(X, t_phn, t_spk, name="BN features, PHN optimized", transform=bn_extractor)
 
-    spk_decoder = torch.nn.Sequential(
-        torch.nn.Linear(2,10),
-        torch.nn.ReLU(),
-        torch.nn.Linear(10,3),
-        torch.nn.LogSoftmax()
-    )
-    spk_backup = copy.deepcopy(spk_decoder)
+    spk_decoder = copy.deepcopy(spk_decoder_init)
 
     print("Training SPK decoder")
     train(bn_extractor, [spk_decoder],
@@ -219,10 +223,14 @@ if __name__ == '__main__':
           (X, [t_spk]), (X_val, [t_spk_val]),
           args.nb_epochs)
 
+    bn_extractor = copy.deepcopy(bn_extractor_init)
+    spk_decoder = copy.deepcopy(spk_decoder_init)
+    phn_decoder = copy.deepcopy(phn_decoder_init)
+
     print("Training jointly, from same init:")
     train(bn_extractor, [phn_decoder, spk_decoder],
-          itertools.chain(bn_backup.parameters(), phn_backup.parameters(), spk_backup.parameters()),
+          itertools.chain(bn_extractor.parameters(), phn_decoder.parameters(), spk_decoder.parameters()),
           (X, [t_phn, t_spk]), (X_val, [t_phn_val, t_spk_val]),
           args.nb_epochs)
 
-    plotter.plot(X, t_phn, t_spk, name="BN features, PHN+SPK optimized", transform=bn_backup)
+    plotter.plot(X, t_phn, t_spk, name="BN features, PHN+SPK optimized", transform=bn_extractor)
