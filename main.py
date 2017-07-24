@@ -139,16 +139,25 @@ def generate(gens, N_per_cluster):
 
     return X, t_phn, t_spk
 
-def train(common, decoders, params, train_data, val_data, nb_epochs, report_interval=25):
+def grouping_reporter(epoch, losses, accs, val_losses, val_accs):
+    string = "{:>3}".format(epoch)
+    for l, a in zip(losses, accs):
+        string += " ({:.3f} {:.3f})".format(l, a)
+    string += " |"
+    for l, a in zip(val_losses, val_accs):
+        string += " ({:.3f} {:.3f})".format(l, a)
+    return string
+
+
+def train(common, decoders, params, train_data, val_data, nb_epochs, report_interval=25,
+        reporter=grouping_reporter):
     optim = torch.optim.SGD(params, lr=1e-3)
     for i in range(nb_epochs):
         ce, acc = multi_target_epoch(common, decoders, optim, train_data[0], train_data[1])
         val_ce, val_acc = multi_target_epoch(common, decoders, optim, val_data[0], val_data[1], train=False)
 
         if i % report_interval == report_interval - 1:
-            string = "Train {:>3} CE: {:.3f}, Acc: {:2.2f} | Valid: CE {:.3f}, Acc {:.3f}".format(
-                i, ce[0], 100.0*acc[0], val_ce[0], 100.0*val_acc[0]
-            )
+            string = reporter(i, ce, acc, val_ce, val_acc)
             print(string)
 
 if __name__ == '__main__':
@@ -211,12 +220,9 @@ if __name__ == '__main__':
           args.nb_epochs)
 
     print("Training jointly, from same init:")
-    optim = torch.optim.SGD(itertools.chain(bn_backup.parameters(), phn_backup.parameters(), spk_backup.parameters()), lr=1e-3)
-    for i in range(args.nb_epochs):
-        ces, accs= multi_target_epoch(bn_backup, [phn_backup, spk_backup], optim, X, [t_phn, t_spk])
-        if i % 25 == 24:
-            string = "{:>3} phn CE: {:.3f}, phn Acc: {:2.2f}, spk CE: {:.3f}, spk Acc: {:2.2f}".format(
-                i, ces[0], 100.0*accs[0], ces[1], 100.0*accs[1]
-            )
-            print(string)
+    train(bn_extractor, [phn_decoder, spk_decoder],
+          itertools.chain(bn_backup.parameters(), phn_backup.parameters(), spk_backup.parameters()),
+          (X, [t_phn, t_spk]), (X_val, [t_phn_val, t_spk_val]),
+          args.nb_epochs)
+
     plotter.plot(X, t_phn, t_spk, name="BN features, PHN+SPK optimized", transform=bn_backup)
