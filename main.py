@@ -139,12 +139,11 @@ def generate(gens, N_per_cluster):
 
     return X, t_phn, t_spk
 
-def train(common, decoders, params, X, ts, nb_epochs, report_interval=25):
+def train(common, decoders, params, train_data, val_data, nb_epochs, report_interval=25):
     optim = torch.optim.SGD(params, lr=1e-3)
-    # optim = torch.optim.SGD(itertools.chain(bn_extractor.parameters(), phn_decoder.parameters()), lr=1e-3)
     for i in range(nb_epochs):
-        ce, acc = multi_target_epoch(common, decoders, optim, X, ts)
-        val_ce, val_acc = multi_target_epoch(common, decoders, optim, X, ts, train=False)
+        ce, acc = multi_target_epoch(common, decoders, optim, train_data[0], train_data[1])
+        val_ce, val_acc = multi_target_epoch(common, decoders, optim, val_data[0], val_data[1], train=False)
 
         if i % report_interval == report_interval - 1:
             string = "Train {:>3} CE: {:.3f}, Acc: {:2.2f} | Valid: CE {:.3f}, Acc {:.3f}".format(
@@ -156,6 +155,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--nb-epochs", type=int, default=200,
                         help="number of training epochs")
+    parser.add_argument("--bne-width", type=int, default=100,
+                        help="width of the bottleneck extractor (its hidden layers)")
     args = parser.parse_args()
 
     gens = instantiate_generators() 
@@ -168,11 +169,11 @@ if __name__ == '__main__':
 
     bn_width = 100
     bn_extractor = torch.nn.Sequential(
-        torch.nn.Linear(2, bn_width),
+        torch.nn.Linear(2, args.bne_width),
         torch.nn.ReLU(),
-        torch.nn.Linear(bn_width, bn_width),
+        torch.nn.Linear(args.bne_width, args.bne_width),
         torch.nn.ReLU(),
-        torch.nn.Linear(bn_width, 2),
+        torch.nn.Linear(args.bne_width, 2),
     )
 
     bn_backup = copy.deepcopy(bn_extractor)
@@ -190,7 +191,8 @@ if __name__ == '__main__':
     print("Training PHN network")
     train(bn_extractor, [phn_decoder],
           itertools.chain(bn_extractor.parameters(), phn_decoder.parameters()),
-          X, [t_phn], args.nb_epochs)
+          (X, [t_phn]), (X_val, [t_phn_val]), 
+          args.nb_epochs)
 
     plotter.plot(X, t_phn, t_spk, name="BN features, PHN optimized", transform=bn_extractor)
 
@@ -204,7 +206,9 @@ if __name__ == '__main__':
 
     print("Training SPK decoder")
     train(bn_extractor, [spk_decoder],
-          spk_decoder.parameters(), X, [t_spk], args.nb_epochs)
+          spk_decoder.parameters(), 
+          (X, [t_spk]), (X_val, [t_spk_val]),
+          args.nb_epochs)
 
     print("Training jointly, from same init:")
     optim = torch.optim.SGD(itertools.chain(bn_backup.parameters(), phn_backup.parameters(), spk_backup.parameters()), lr=1e-3)
