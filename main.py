@@ -183,7 +183,7 @@ def grouping_reporter(epoch, lr, losses, accs, val_losses, val_accs):
 
 def train(common, decoders, params, train_data, val_data, nb_epochs, report_interval=25,
         reporter=grouping_reporter):
-    lr = 1e-3
+    lr = 1e-4
     optim = torch.optim.Adam(params, lr=lr)
     best_val_loss = float("inf")
 
