@@ -50,6 +50,12 @@ class Plotter():
         plt.show(block=False)
         plt.pause(0.05)
 
+        axes = plt.gca()
+        ymin, ymax = axes.get_ylim()
+        xmin, xmax = axes.get_xlim()
+
+        return (xmin, ymin), (xmax, ymax)
+
 def create_models(bne_width):
     bn_extractor_init = torch.nn.Sequential(
         torch.nn.Linear(2, bne_width),
@@ -251,9 +257,9 @@ def main(args):
           (X, [t_phn]), (X_val, [t_phn_val]), 
           args.nb_epochs)
 
-    plotter.plot(X, t_phn, t_spk, name="BN features, PHN optimized", transform=bn_extractor)
-    plot_preds("PHN decoding in raw space", (-5, -5), (15, 15), lambda x: phn_decoder(bn_extractor(x)))
-    plot_preds("PHN decoding in BN space", (-10, -10), (10, 10), phn_decoder)
+    bl, ur = plotter.plot(X, t_phn, t_spk, name="BN features, PHN optimized", transform=bn_extractor)
+    plot_preds("PHN decoding in raw space", bl, ur, lambda x: phn_decoder(bn_extractor(x)))
+    plot_preds("PHN decoding in BN space", bl, ur, phn_decoder)
 
     spk_decoder = copy.deepcopy(spk_decoder_init)
 
@@ -273,9 +279,8 @@ def main(args):
           (X, [t_phn, t_spk]), (X_val, [t_phn_val, t_spk_val]),
           args.nb_epochs)
 
-    plotter.plot(X, t_phn, t_spk, name="BN features, PHN+SPK optimized", transform=bn_extractor)
-    plotter.plot(X, t_spk, t_phn, name="BN features, PHN+SPK optimized, inverted color-marker", transform=bn_extractor)
-    plot_preds("PHN decoding in jointly trained BN space", (-10, -10), (10, 10), phn_decoder)
+    bl, ur = plotter.plot(X, t_phn, t_spk, name="BN features, PHN+SPK optimized", transform=bn_extractor)
+    plot_preds("PHN decoding in jointly trained BN space", bl, ur, phn_decoder)
 
     bn_extractor = copy.deepcopy(bn_extractor_init)
     spk_decoder = copy.deepcopy(spk_decoder_init)
@@ -288,9 +293,8 @@ def main(args):
           (X, [t_phn, t_spk]), (X_val, [t_phn_val, t_spk_val]),
           args.nb_epochs)
 
-    plotter.plot(X, t_phn, t_spk, name="BN features, PHN-SPK optimized", transform=bn_extractor)
-    plotter.plot(X, t_spk, t_phn, name="BN features, PHN-SPK optimized, inverter color-marker", transform=bn_extractor)
-    plot_preds("PHN decoding in disconcertly trained BN space", (-10, -10), (10, 10), phn_decoder)
+    bl, ur = plotter.plot(X, t_phn, t_spk, name="BN features, PHN-SPK optimized", transform=bn_extractor)
+    plot_preds("PHN decoding in disconcertly trained BN space", bl, ur, phn_decoder)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
