@@ -219,6 +219,8 @@ def plot_preds(name, bottom_left, upper_right, classifier, nb_steps=100):
     plt.figure(name)
     plt.scatter(X.numpy()[:, 0], X.numpy()[:, 1], c=colors)
     
+    plt.show(block=False)
+    plt.pause(0.05)
 
 class GradReverter(torch.autograd.Function):
     def forward(self, x):
