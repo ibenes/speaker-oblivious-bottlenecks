@@ -206,6 +206,20 @@ def train(common, decoders, params, train_data, val_data, nb_epochs, report_inte
             string = reporter(i, lr, ce, acc, val_ce, val_acc)
             print(string)
 
+def plot_preds(name, bottom_left, upper_right, classifier, nb_steps=100):
+    X = np.mgrid[bottom_left[0]:upper_right[0]:(upper_right[0]-bottom_left[0])/nb_steps,
+                 bottom_left[1]:upper_right[1]:(upper_right[1]-bottom_left[1])/nb_steps]
+    X = X.reshape(2, -1).T
+    X = torch.from_numpy(X).float()
+    print(X.size())
+
+    y = classifier(Variable(X))
+    colors = torch.exp(y).data.numpy()
+
+    plt.figure(name)
+    plt.scatter(X.numpy()[:, 0], X.numpy()[:, 1], c=colors)
+    
+
 class GradReverter(torch.autograd.Function):
     def forward(self, x):
         return x
@@ -237,6 +251,9 @@ def main(args):
           args.nb_epochs)
 
     plotter.plot(X, t_phn, t_spk, name="BN features, PHN optimized", transform=bn_extractor)
+    plot_preds("PHN decoding in raw space", (-5, -5), (15, 15), lambda x: phn_decoder(bn_extractor(x)))
+    plot_preds("PHN decoding in BN space", (-10, -10), (10, 10), phn_decoder)
+    sys.exit(0)
 
     spk_decoder = copy.deepcopy(spk_decoder_init)
 
