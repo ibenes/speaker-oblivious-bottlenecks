@@ -164,8 +164,8 @@ def generate(gens, N_per_cluster):
 
     return X, t_phn, t_spk
 
-def grouping_reporter(epoch, losses, accs, val_losses, val_accs):
-    string = "{:>3}".format(epoch)
+def grouping_reporter(epoch, lr, losses, accs, val_losses, val_accs):
+    string = "{:>3}, lr {:.3e}".format(epoch, lr)
     for l, a in zip(losses, accs):
         string += " ({:.3f} {:.3f})".format(l, a)
     string += " |"
@@ -176,13 +176,33 @@ def grouping_reporter(epoch, losses, accs, val_losses, val_accs):
 
 def train(common, decoders, params, train_data, val_data, nb_epochs, report_interval=25,
         reporter=grouping_reporter):
-    optim = torch.optim.Adam(params, lr=1e-3)
+    lr = 1e-3
+    optim = torch.optim.Adam(params, lr=lr)
+    best_val_loss = float("inf")
+
     for i in range(nb_epochs):
+        if lr < 1e-7:
+            print("stopping training, because of LR being effectively zero")
+            string = reporter(i, lr, ce, acc, val_ce, val_acc)
+            print(string)
+            break
+
         ce, acc = multi_target_epoch(common, decoders, optim, train_data[0], train_data[1])
         val_ce, val_acc = multi_target_epoch(common, decoders, optim, val_data[0], val_data[1], train=False)
 
+        val_loss = sum(val_ce)
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+        else:
+            for param_group in optim.param_groups:
+                lr *= 0.5
+                param_group['lr'] = lr
+            string = reporter(i, lr, ce, acc, val_ce, val_acc)
+            print(string)
+
+
         if i % report_interval == report_interval - 1:
-            string = reporter(i, ce, acc, val_ce, val_acc)
+            string = reporter(i, lr, ce, acc, val_ce, val_acc)
             print(string)
 
 class GradReverter(torch.autograd.Function):
@@ -192,16 +212,7 @@ class GradReverter(torch.autograd.Function):
     def backward(self, g):
         return -g
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--nb-epochs", type=int, default=200,
-                        help="number of training epochs")
-    parser.add_argument("--bne-width", type=int, default=100,
-                        help="width of the bottleneck extractor (its hidden layers)")
-    parser.add_argument("--seed", type=int, default=1337,
-                        help="seed for both NumPy data and PyTorch model weights sampling")
-    args = parser.parse_args()
-
+def main(args):
     np.random.seed(args.seed)
     gens = instantiate_generators() 
         
@@ -218,7 +229,7 @@ if __name__ == '__main__':
 
     phn_decoder = copy.deepcopy(phn_decoder_init)
 
-    print("Training PHN network")
+    print("\nTraining PHN network")
     train(bn_extractor, [phn_decoder],
           itertools.chain(bn_extractor.parameters(), phn_decoder.parameters()),
           (X, [t_phn]), (X_val, [t_phn_val]), 
@@ -228,7 +239,7 @@ if __name__ == '__main__':
 
     spk_decoder = copy.deepcopy(spk_decoder_init)
 
-    print("Training SPK decoder")
+    print("\nTraining SPK decoder")
     train(bn_extractor, [spk_decoder],
           spk_decoder.parameters(), 
           (X, [t_spk]), (X_val, [t_spk_val]),
@@ -238,7 +249,7 @@ if __name__ == '__main__':
     spk_decoder = copy.deepcopy(spk_decoder_init)
     phn_decoder = copy.deepcopy(phn_decoder_init)
 
-    print("Training jointly, from same init:")
+    print("\nTraining jointly, from same init:")
     train(bn_extractor, [phn_decoder, spk_decoder],
           itertools.chain(bn_extractor.parameters(), phn_decoder.parameters(), spk_decoder.parameters()),
           (X, [t_phn, t_spk]), (X_val, [t_phn_val, t_spk_val]),
@@ -252,7 +263,7 @@ if __name__ == '__main__':
     phn_decoder = copy.deepcopy(phn_decoder_init)
     grad_reverter = GradReverter()
 
-    print("Training in disconcert, from same init:")
+    print("\nTraining in disconcert, from same init:")
     train(bn_extractor, [phn_decoder, lambda x: spk_decoder(grad_reverter(x))],
           itertools.chain(bn_extractor.parameters(), phn_decoder.parameters(), spk_decoder.parameters()),
           (X, [t_phn, t_spk]), (X_val, [t_phn_val, t_spk_val]),
@@ -260,3 +271,15 @@ if __name__ == '__main__':
 
     plotter.plot(X, t_phn, t_spk, name="BN features, PHN-SPK optimized", transform=bn_extractor)
     plotter.plot(X, t_spk, t_phn, name="BN features, PHN-SPK optimized, inverter color-marker", transform=bn_extractor)
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--nb-epochs", type=int, default=200,
+                        help="number of training epochs")
+    parser.add_argument("--bne-width", type=int, default=100,
+                        help="width of the bottleneck extractor (its hidden layers)")
+    parser.add_argument("--seed", type=int, default=1337,
+                        help="seed for both NumPy data and PyTorch model weights sampling")
+    args = parser.parse_args()
+
+    main(args)
