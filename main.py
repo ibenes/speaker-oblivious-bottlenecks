@@ -240,7 +240,6 @@ def main(args):
     torch.manual_seed(args.seed)
     bn_extractor_init, phn_decoder_init, spk_decoder_init = create_models(args.bne_width)
     bn_extractor = copy.deepcopy(bn_extractor_init)
-    plotter.plot(X, t_phn, t_spk, name="BN features, random init", transform=bn_extractor)
 
     phn_decoder = copy.deepcopy(phn_decoder_init)
 
