@@ -198,8 +198,11 @@ if __name__ == '__main__':
                         help="number of training epochs")
     parser.add_argument("--bne-width", type=int, default=100,
                         help="width of the bottleneck extractor (its hidden layers)")
+    parser.add_argument("--seed", type=int, default=1337,
+                        help="seed for both NumPy data and PyTorch model weights sampling")
     args = parser.parse_args()
 
+    np.random.seed(args.seed)
     gens = instantiate_generators() 
         
     X, t_phn, t_spk = generate(gens, 100)
@@ -208,6 +211,7 @@ if __name__ == '__main__':
     plotter = Plotter()
     plotter.plot(X, t_phn, t_spk, name="Raw data")
 
+    torch.manual_seed(args.seed)
     bn_extractor_init, phn_decoder_init, spk_decoder_init = create_models(args.bne_width)
     bn_extractor = copy.deepcopy(bn_extractor_init)
     plotter.plot(X, t_phn, t_spk, name="BN features, random init", transform=bn_extractor)
