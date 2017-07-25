@@ -48,6 +48,7 @@ class Plotter():
             plt.scatter(spk_set[:,0], spk_set[:,1],
                         c=phn.numpy()[mask], cmap=self._cmap, marker=m) 
         plt.show(block=False)
+        plt.pause(0.05)
 
 def create_models(bne_width):
     bn_extractor_init = torch.nn.Sequential(
