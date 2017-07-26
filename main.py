@@ -29,7 +29,12 @@ class PhnSpkGenerator():
 
 
 class Plotter():
-    def __init__(self):
+    def __init__(self, no_plot):
+        self._no_plot = no_plot
+
+        if self._no_plot:
+            return
+
         atexit.register(plt.show)
         self._cmap = matplotlib.colors.ListedColormap([
             (1, 0, 0),
@@ -38,6 +43,9 @@ class Plotter():
         ])
 
     def plot(self, X, phn, spk, name="fig", transform = lambda x:x):
+        if self._no_plot:
+            return self.last_axes_boundaries()
+
         plt.figure(name)
 
         for i, m in enumerate(['o', '+', 'x']):
@@ -52,6 +60,9 @@ class Plotter():
         return self.last_axes_boundaries()
 
     def plot_preds(self, name, X, y, colors):
+        if self._no_plot:
+            return self.last_axes_boundaries()
+
         plt.figure(name)
         plt.scatter(X.numpy()[:, 0], X.numpy()[:, 1], c=colors)
         self._show_plot()
@@ -257,7 +268,7 @@ def main(args):
     X, t_phn, t_spk = generate(gens, 100)
     X_val, t_phn_val, t_spk_val = generate(gens, 100)
 
-    plotter = Plotter()
+    plotter = Plotter(args.no_plot)
     plotter.plot(X, t_phn, t_spk, name="Raw data")
     plotter.plot(X_val, t_phn_val, t_spk_val, name="Raw validation data")
 
@@ -320,6 +331,8 @@ if __name__ == '__main__':
                         help="width of the bottleneck extractor (its hidden layers)")
     parser.add_argument("--seed", type=int, default=1337,
                         help="seed for both NumPy data and PyTorch model weights sampling")
+    parser.add_argument("--no-plot", action="store_true",
+                        help="do no plotting")
     args = parser.parse_args()
 
     main(args)
