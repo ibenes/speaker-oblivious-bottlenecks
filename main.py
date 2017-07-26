@@ -47,20 +47,16 @@ class Plotter():
             spk_set = transform(spk_set).data.numpy()
             plt.scatter(spk_set[:,0], spk_set[:,1],
                         c=phn.numpy()[mask], cmap=self._cmap, marker=m) 
-        plt.show(block=False)
-        plt.pause(0.05)
+        self._show_plot()
 
         return self.last_axes_boundaries()
 
     def plot_preds(self, name, X, y, colors):
         plt.figure(name)
         plt.scatter(X.numpy()[:, 0], X.numpy()[:, 1], c=colors)
-        
-        plt.show(block=False)
-        plt.pause(0.05)
+        self._show_plot()
 
         return self.last_axes_boundaries()
-
 
     def last_axes_boundaries(self):
         axes = plt.gca()
@@ -68,6 +64,11 @@ class Plotter():
         xmin, xmax = axes.get_xlim()
         
         return (xmin, ymin), (xmax, ymax)
+
+    def _show_plot(self):
+        plt.show(block=False)
+        plt.pause(0.05)
+        
         
 
 
