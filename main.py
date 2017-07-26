@@ -79,8 +79,6 @@ class Plotter():
     def _show_plot(self):
         plt.show(block=False)
         plt.pause(0.05)
-        
-        
 
 
 def create_models(bne_width):
@@ -213,6 +211,9 @@ def train(common, decoders, params, train_data, val_data, nb_epochs, report_inte
     lr = 1e-4
     optim = torch.optim.Adam(params, lr=lr)
     best_val_loss = float("inf")
+    patience_init = 5
+
+    patience = patience_init
 
     for i in range(nb_epochs):
         if lr < 1e-7:
@@ -227,12 +228,16 @@ def train(common, decoders, params, train_data, val_data, nb_epochs, report_inte
         val_loss = sum(val_ce)
         if val_loss < best_val_loss:
             best_val_loss = val_loss
+            patience = patience_init
         else:
-            for param_group in optim.param_groups:
-                lr *= 0.5
-                param_group['lr'] = lr
-            string = reporter(i, lr, ce, acc, val_ce, val_acc)
-            print(string)
+            if patience == 0:
+                for param_group in optim.param_groups:
+                    lr *= 0.5
+                    param_group['lr'] = lr
+                string = reporter(i, lr, ce, acc, val_ce, val_acc)
+                print(string)
+            else:
+                patience -= 1
 
 
         if i % report_interval == report_interval - 1:
