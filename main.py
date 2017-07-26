@@ -50,11 +50,7 @@ class Plotter():
         plt.show(block=False)
         plt.pause(0.05)
 
-        axes = plt.gca()
-        ymin, ymax = axes.get_ylim()
-        xmin, xmax = axes.get_xlim()
-
-        return (xmin, ymin), (xmax, ymax)
+        return self.last_axes_boundaries()
 
     def plot_preds(self, name, X, y, colors):
         plt.figure(name)
@@ -63,11 +59,16 @@ class Plotter():
         plt.show(block=False)
         plt.pause(0.05)
 
+        return self.last_axes_boundaries()
+
+
+    def last_axes_boundaries(self):
         axes = plt.gca()
         ymin, ymax = axes.get_ylim()
         xmin, xmax = axes.get_xlim()
         
         return (xmin, ymin), (xmax, ymax)
+        
 
 
 def create_models(bne_width):
