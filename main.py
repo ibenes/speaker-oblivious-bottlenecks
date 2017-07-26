@@ -56,6 +56,20 @@ class Plotter():
 
         return (xmin, ymin), (xmax, ymax)
 
+    def plot_preds(self, name, X, y, colors):
+        plt.figure(name)
+        plt.scatter(X.numpy()[:, 0], X.numpy()[:, 1], c=colors)
+        
+        plt.show(block=False)
+        plt.pause(0.05)
+
+        axes = plt.gca()
+        ymin, ymax = axes.get_ylim()
+        xmin, xmax = axes.get_xlim()
+        
+        return (xmin, ymin), (xmax, ymax)
+
+
 def create_models(bne_width):
     bn_extractor_init = torch.nn.Sequential(
         torch.nn.Linear(2, bne_width),
@@ -212,7 +226,16 @@ def train(common, decoders, params, train_data, val_data, nb_epochs, report_inte
             string = reporter(i, lr, ce, acc, val_ce, val_acc)
             print(string)
 
-def plot_preds(name, bottom_left, upper_right, classifier, nb_steps=100):
+
+class GradReverter(torch.autograd.Function):
+    def forward(self, x):
+        return x
+
+    def backward(self, g):
+        return -g
+
+
+def plot_preds(plotter, name, bottom_left, upper_right, classifier, nb_steps=100):
     X = np.mgrid[bottom_left[0]:upper_right[0]:(upper_right[0]-bottom_left[0])/nb_steps,
                  bottom_left[1]:upper_right[1]:(upper_right[1]-bottom_left[1])/nb_steps]
     X = X.reshape(2, -1).T
@@ -222,18 +245,8 @@ def plot_preds(name, bottom_left, upper_right, classifier, nb_steps=100):
     y = classifier(Variable(X))
     colors = torch.exp(y).data.numpy()
 
-    plt.figure(name)
-    plt.scatter(X.numpy()[:, 0], X.numpy()[:, 1], c=colors)
-    
-    plt.show(block=False)
-    plt.pause(0.05)
+    plotter.plot_preds(name, X, y, colors)
 
-class GradReverter(torch.autograd.Function):
-    def forward(self, x):
-        return x
-
-    def backward(self, g):
-        return -g
 
 def main(args):
     np.random.seed(args.seed)
@@ -244,6 +257,7 @@ def main(args):
 
     plotter = Plotter()
     plotter.plot(X, t_phn, t_spk, name="Raw data")
+    plotter.plot(X_val, t_phn_val, t_spk_val, name="Raw validation data")
 
     torch.manual_seed(args.seed)
     bn_extractor_init, phn_decoder_init, spk_decoder_init = create_models(args.bne_width)
@@ -258,8 +272,8 @@ def main(args):
           args.nb_epochs)
 
     bl, ur = plotter.plot(X, t_phn, t_spk, name="BN features, PHN optimized", transform=bn_extractor)
-    plot_preds("PHN decoding in raw space", bl, ur, lambda x: phn_decoder(bn_extractor(x)))
-    plot_preds("PHN decoding in BN space", bl, ur, phn_decoder)
+    plot_preds(plotter, "PHN decoding in raw space", bl, ur, lambda x: phn_decoder(bn_extractor(x)))
+    plot_preds(plotter, "PHN decoding in BN space", bl, ur, phn_decoder)
 
     spk_decoder = copy.deepcopy(spk_decoder_init)
 
@@ -280,7 +294,7 @@ def main(args):
           args.nb_epochs)
 
     bl, ur = plotter.plot(X, t_phn, t_spk, name="BN features, PHN+SPK optimized", transform=bn_extractor)
-    plot_preds("PHN decoding in jointly trained BN space", bl, ur, phn_decoder)
+    plot_preds(plotter, "PHN decoding in jointly trained BN space", bl, ur, phn_decoder)
 
     bn_extractor = copy.deepcopy(bn_extractor_init)
     spk_decoder = copy.deepcopy(spk_decoder_init)
@@ -294,7 +308,7 @@ def main(args):
           args.nb_epochs)
 
     bl, ur = plotter.plot(X, t_phn, t_spk, name="BN features, PHN-SPK optimized", transform=bn_extractor)
-    plot_preds("PHN decoding in disconcertly trained BN space", bl, ur, phn_decoder)
+    plot_preds(plotter, "PHN decoding in disconcertly trained BN space", bl, ur, phn_decoder)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
