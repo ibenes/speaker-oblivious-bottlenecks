@@ -92,14 +92,14 @@ def create_models(bne_width):
     
     phn_decoder_init = torch.nn.Sequential(
         torch.nn.Linear(2,10),
-        torch.nn.ReLU(),
+        torch.nn.Sigmoid(),
         torch.nn.Linear(10,3),
         torch.nn.LogSoftmax()
     )
 
     spk_decoder_init = torch.nn.Sequential(
         torch.nn.Linear(2,10),
-        torch.nn.ReLU(),
+        torch.nn.Sigmoid(),
         torch.nn.Linear(10,3),
         torch.nn.LogSoftmax()
     )
