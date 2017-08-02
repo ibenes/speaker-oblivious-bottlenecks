@@ -12,14 +12,27 @@ import argparse
 import common_module
 
 
-def train(common, decoders, params, train_data, val_data, nb_epochs, report_interval=25,
+class GradReverter(torch.autograd.Function):
+    def forward(self, x):
+        return x
+
+    def backward(self, g):
+        return -g
+
+
+def adversary_train(bne, main, adversaly_aux, train_data, val_data, nb_epochs, report_interval=25,
         reporter=common_module.grouping_reporter):
     lr = 1e-3
-    optim = torch.optim.Adam(params, lr=lr)
+    main_optim = torch.optim.Adam(itertools.chain(bne.parameters(), main.parameters()), lr=lr)
+    adversary_optim = torch.optim.Adam(adversaly_aux.parameters(), lr=lr)
     best_val_loss = float("inf")
-    patience_init = 5
 
+    grad_reverter = GradReverter()
+    adversary = lambda x: adversaly_aux(grad_reverter(x))
+
+    patience_init = 5
     patience = patience_init
+    adversary_epochs = 3
 
     for i in range(nb_epochs):
         if lr < 1e-7:
@@ -28,16 +41,19 @@ def train(common, decoders, params, train_data, val_data, nb_epochs, report_inte
             print(string)
             break
 
-        ce, acc = common_module.multi_target_epoch(common, decoders, optim, train_data[0], train_data[1])
-        val_ce, val_acc = common_module.multi_target_epoch(common, decoders, optim, val_data[0], val_data[1], train=False)
+        ce, acc = common_module.multi_target_epoch(bne, [main, adversary], main_optim, train_data[0], train_data[1])
+        for j in range(adversary_epochs):
+            ce, acc = common_module.multi_target_epoch(bne, [adversary], adversary_optim, train_data[0], train_data[1][1:])
 
-        val_loss = sum(val_ce)
+        val_ce, val_acc = common_module.multi_target_epoch(bne, [main, adversary], main_optim, val_data[0], val_data[1], train=False)
+
+        val_loss = val_ce[0] # we only measure the main (PHN) crossentropy
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             patience = patience_init
         else:
             if patience == 0:
-                for param_group in optim.param_groups:
+                for param_group in itertools.chain(main_optim.param_groups, adversary_optim.param_groups):
                     lr *= 0.5
                     param_group['lr'] = lr
                 string = reporter(i, lr, ce, acc, val_ce, val_acc)
@@ -64,44 +80,18 @@ def main(args):
 
     torch.manual_seed(args.seed)
     bn_extractor_init, phn_decoder_init, spk_decoder_init = common_module.create_models(args.bne_width)
-    bn_extractor = copy.deepcopy(bn_extractor_init)
-
-    phn_decoder = copy.deepcopy(phn_decoder_init)
-
-    print("\nTraining PHN network")
-    train(bn_extractor, [phn_decoder],
-          itertools.chain(bn_extractor.parameters(), phn_decoder.parameters()),
-          (X, [t_phn]), (X_val, [t_phn_val]), 
-          args.nb_epochs)
-
-    bl, ur = plotter.plot(X, t_phn, t_spk, name="BN features, PHN optimized", transform=bn_extractor)
-    common_module.plot_preds(plotter, "PHN decoding in raw space", raw_bl, raw_ur, lambda x: phn_decoder(bn_extractor(x)))
-    common_module.plot_preds(plotter, "PHN decoding in BN space", bl, ur, phn_decoder)
-
-    spk_decoder = copy.deepcopy(spk_decoder_init)
-
-    print("\nTraining SPK decoder")
-    train(bn_extractor, [spk_decoder],
-          spk_decoder.parameters(), 
-          (X, [t_spk]), (X_val, [t_spk_val]),
-          args.nb_epochs)
 
     bn_extractor = copy.deepcopy(bn_extractor_init)
     spk_decoder = copy.deepcopy(spk_decoder_init)
     phn_decoder = copy.deepcopy(phn_decoder_init)
 
-    print("\nTraining jointly, from same init:")
-    train(bn_extractor, [phn_decoder, spk_decoder],
-          itertools.chain(bn_extractor.parameters(), phn_decoder.parameters(), spk_decoder.parameters()),
+    print("\nTraining in disconcert, from same init:")
+    adversary_train(bn_extractor, phn_decoder, spk_decoder,
           (X, [t_phn, t_spk]), (X_val, [t_phn_val, t_spk_val]),
           args.nb_epochs)
 
-    bl, ur = plotter.plot(X, t_phn, t_spk, name="BN features, PHN+SPK optimized", transform=bn_extractor)
-    common_module.plot_preds(plotter, "PHN decoding in jointly trained BN space", bl, ur, phn_decoder)
-
-    bn_extractor = copy.deepcopy(bn_extractor_init)
-    spk_decoder = copy.deepcopy(spk_decoder_init)
-    phn_decoder = copy.deepcopy(phn_decoder_init)
+    bl, ur = plotter.plot(X, t_phn, t_spk, name="BN features, PHN-SPK optimized", transform=bn_extractor)
+    common_module.plot_preds(plotter, "PHN decoding in disconcertly trained BN space", bl, ur, phn_decoder)
 
 
 if __name__ == '__main__':
