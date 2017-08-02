@@ -208,7 +208,7 @@ def grouping_reporter(epoch, lr, losses, accs, val_losses, val_accs):
 
 def train(common, decoders, params, train_data, val_data, nb_epochs, report_interval=25,
         reporter=grouping_reporter):
-    lr = 1e-4
+    lr = 1e-3
     optim = torch.optim.Adam(params, lr=lr)
     best_val_loss = float("inf")
     patience_init = 5
@@ -251,6 +251,53 @@ class GradReverter(torch.autograd.Function):
 
     def backward(self, g):
         return -g
+
+
+def adversary_train(bne, main, adversaly_aux, train_data, val_data, nb_epochs, report_interval=25,
+        reporter=grouping_reporter):
+    lr = 1e-3
+    main_optim = torch.optim.Adam(itertools.chain(bne.parameters(), main.parameters()), lr=lr)
+    adversary_optim = torch.optim.Adam(adversaly_aux.parameters(), lr=lr)
+    best_val_loss = float("inf")
+
+    grad_reverter = GradReverter()
+    adversary = lambda x: adversaly_aux(grad_reverter(x))
+
+    patience_init = 5
+    patience = patience_init
+    adversary_epochs = 3
+
+    for i in range(nb_epochs):
+        if lr < 1e-7:
+            print("stopping training, because of LR being effectively zero")
+            string = reporter(i, lr, ce, acc, val_ce, val_acc)
+            print(string)
+            break
+
+        ce, acc = multi_target_epoch(bne, [main, adversary], main_optim, train_data[0], train_data[1])
+        for j in range(adversary_epochs):
+            ce, acc = multi_target_epoch(bne, [adversary], adversary_optim, train_data[0], train_data[1][1:])
+
+        val_ce, val_acc = multi_target_epoch(bne, [main, adversary], main_optim, val_data[0], val_data[1], train=False)
+
+        val_loss = val_ce[0] # we only measure the main (PHN) crossentropy
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            patience = patience_init
+        else:
+            if patience == 0:
+                for param_group in itertools.chain(main_optim.param_groups, adversary_optim.param_groups):
+                    lr *= 0.5
+                    param_group['lr'] = lr
+                string = reporter(i, lr, ce, acc, val_ce, val_acc)
+                print(string)
+            else:
+                patience -= 1
+
+
+        if i % report_interval == report_interval - 1:
+            string = reporter(i, lr, ce, acc, val_ce, val_acc)
+            print(string)
 
 
 def plot_preds(plotter, name, bottom_left, upper_right, classifier, nb_steps=100):
@@ -317,11 +364,9 @@ def main(args):
     bn_extractor = copy.deepcopy(bn_extractor_init)
     spk_decoder = copy.deepcopy(spk_decoder_init)
     phn_decoder = copy.deepcopy(phn_decoder_init)
-    grad_reverter = GradReverter()
 
     print("\nTraining in disconcert, from same init:")
-    train(bn_extractor, [phn_decoder, lambda x: spk_decoder(grad_reverter(x))],
-          itertools.chain(bn_extractor.parameters(), phn_decoder.parameters(), spk_decoder.parameters()),
+    adversary_train(bn_extractor, phn_decoder, spk_decoder,
           (X, [t_phn, t_spk]), (X_val, [t_phn_val, t_spk_val]),
           args.nb_epochs)
 
