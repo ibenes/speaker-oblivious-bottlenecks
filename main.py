@@ -275,7 +275,7 @@ def main(args):
 
     plotter = Plotter(args.no_plot)
     plotter.plot(X, t_phn, t_spk, name="Raw data")
-    plotter.plot(X_val, t_phn_val, t_spk_val, name="Raw validation data")
+    raw_bl, raw_ur = plotter.plot(X_val, t_phn_val, t_spk_val, name="Raw validation data")
 
     torch.manual_seed(args.seed)
     bn_extractor_init, phn_decoder_init, spk_decoder_init = create_models(args.bne_width)
@@ -290,7 +290,7 @@ def main(args):
           args.nb_epochs)
 
     bl, ur = plotter.plot(X, t_phn, t_spk, name="BN features, PHN optimized", transform=bn_extractor)
-    plot_preds(plotter, "PHN decoding in raw space", bl, ur, lambda x: phn_decoder(bn_extractor(x)))
+    plot_preds(plotter, "PHN decoding in raw space", raw_bl, raw_ur, lambda x: phn_decoder(bn_extractor(x)))
     plot_preds(plotter, "PHN decoding in BN space", bl, ur, phn_decoder)
 
     spk_decoder = copy.deepcopy(spk_decoder_init)
