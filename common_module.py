@@ -212,3 +212,48 @@ def grouping_reporter(epoch, lr, losses, accs, val_losses, val_accs):
         string += " ({:.3f} {:.3f})".format(l, a)
     return string
 
+
+def train(common, decoders, params,
+          train_data, val_data,
+          nb_epochs, report_interval=25,
+          reporter=common_module.grouping_reporter):
+    lr = 1e-3
+    optim = torch.optim.Adam(params, lr=lr)
+    best_val_loss = float("inf")
+    patience_init = 5
+
+    patience = patience_init
+
+    for i in range(nb_epochs):
+        ce, acc = common_module.multi_target_epoch(
+            common, decoders, optim,
+            train_data[0], train_data[1]
+        )
+        val_ce, val_acc = common_module.multi_target_epoch(
+            common, decoders, optim,
+            val_data[0], val_data[1], train=False
+        )
+
+        val_loss = sum(val_ce)
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            patience = patience_init
+        else:
+            if patience == 0:
+                for param_group in optim.param_groups:
+                    lr *= 0.5
+                    param_group['lr'] = lr
+                string = reporter(i, lr, ce, acc, val_ce, val_acc)
+                print(string)
+            else:
+                patience -= 1
+
+        if lr < 1e-7:
+            print("stopping training, because of LR being effectively zero")
+            string = reporter(i, lr, ce, acc, val_ce, val_acc)
+            print(string)
+            break
+
+        if i % report_interval == report_interval - 1:
+            string = reporter(i, lr, ce, acc, val_ce, val_acc)
+            print(string)
