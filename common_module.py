@@ -8,6 +8,7 @@ import copy
 import matplotlib
 import matplotlib.pyplot as plt
 
+
 class PhnSpkGenerator():
     def __init__(self, mu, cov, phn, spk):
         self._mu = mu
@@ -36,7 +37,7 @@ class Plotter():
             (0, 0, 1)
         ])
 
-    def plot(self, X, phn, spk, name="fig", transform = lambda x:x):
+    def plot(self, X, phn, spk, name="fig", transform=lambda x: x):
         if self._no_plot:
             return self.last_axes_boundaries()
 
@@ -47,8 +48,8 @@ class Plotter():
             spk_set = X.numpy()[mask]
             spk_set = Variable(torch.from_numpy(spk_set).float())
             spk_set = transform(spk_set).data.numpy()
-            plt.scatter(spk_set[:,0], spk_set[:,1],
-                        c=phn.numpy()[mask], cmap=self._cmap, marker=m) 
+            plt.scatter(spk_set[:, 0], spk_set[:, 1],
+                        c=phn.numpy()[mask], cmap=self._cmap, marker=m)
         self._show_plot()
 
         return self.last_axes_boundaries()
@@ -67,7 +68,7 @@ class Plotter():
         axes = plt.gca()
         ymin, ymax = axes.get_ylim()
         xmin, xmax = axes.get_xlim()
-        
+
         return (xmin, ymin), (xmax, ymax)
 
     def _show_plot(self):
@@ -75,9 +76,10 @@ class Plotter():
         plt.pause(0.05)
 
 
-def plot_preds(plotter, name, bottom_left, upper_right, classifier, nb_steps=100):
-    X = np.mgrid[bottom_left[0]:upper_right[0]:(upper_right[0]-bottom_left[0])/nb_steps,
-                 bottom_left[1]:upper_right[1]:(upper_right[1]-bottom_left[1])/nb_steps]
+def plot_preds(plotter, name, b_l, u_r,
+               classifier, nb_steps=100):
+    X = np.mgrid[b_l[0]:u_r[0]:(u_r[0]-b_l[0])/nb_steps,
+                 b_l[1]:u_r[1]:(u_r[1]-b_l[1])/nb_steps]
     X = X.reshape(2, -1).T
     X = torch.from_numpy(X).float()
     print(X.size())
@@ -96,25 +98,26 @@ def create_models(bne_width):
         torch.nn.ReLU(),
         torch.nn.Linear(bne_width, 2),
     )
-    
+
     phn_decoder_init = torch.nn.Sequential(
-        torch.nn.Linear(2,10),
+        torch.nn.Linear(2, 10),
         torch.nn.Sigmoid(),
-        torch.nn.Linear(10,3),
+        torch.nn.Linear(10, 3),
         torch.nn.LogSoftmax()
     )
 
     spk_decoder_init = torch.nn.Sequential(
-        torch.nn.Linear(2,10),
+        torch.nn.Linear(2, 10),
         torch.nn.Sigmoid(),
-        torch.nn.Linear(10,3),
+        torch.nn.Linear(10, 3),
         torch.nn.LogSoftmax()
     )
 
     return bn_extractor_init, phn_decoder_init, spk_decoder_init
 
 
-def multi_target_epoch(common, decoders, optim, X, targets, batch_size=16, shuffle=True, train=True):
+def multi_target_epoch(common, decoders, optim, X, targets,
+                       batch_size=16, shuffle=True, train=True):
     assert len(decoders) == len(targets)
     N = X.size()[0]
     for t in targets:
@@ -128,7 +131,6 @@ def multi_target_epoch(common, decoders, optim, X, targets, batch_size=16, shuff
         train_X = torch.from_numpy(train_X)
         for i, t in enumerate(train_targets):
             train_targets[i] = torch.from_numpy(t.numpy()[p])
-
 
     nb_batches = N // batch_size
     total = nb_batches * batch_size
@@ -146,12 +148,12 @@ def multi_target_epoch(common, decoders, optim, X, targets, batch_size=16, shuff
         for t in train_targets:
             batch_ts.append(Variable(t[i*batch_size:(i+1)*batch_size]))
 
-        repre = common(batch_X) 
+        repre = common(batch_X)
 
         losses = []
         for i, (dec, t) in enumerate(zip(decoders, batch_ts)):
             y = dec(repre)
-            loss = criterion(y, t) 
+            loss = criterion(y, t)
             losses.append(loss)
             _, preds = y.max(dim=1)
             nb_correct[i] += (preds == t).sum().data[0]
@@ -165,16 +167,17 @@ def multi_target_epoch(common, decoders, optim, X, targets, batch_size=16, shuff
 
     return [cl/nb_batches for cl in cum_losses], [c/total for c in nb_correct]
 
+
 def instantiate_generators():
     phn_mus = []
-    phn_mus.append(np.asarray([0.7,1.7]))
-    phn_mus.append(np.asarray([3.5,2]))
-    phn_mus.append(np.asarray([2,4.2]))
+    phn_mus.append(np.asarray([0.7, 1.7]))
+    phn_mus.append(np.asarray([3.5, 2]))
+    phn_mus.append(np.asarray([2, 4.2]))
 
     phn_covs = []
-    phn_covs.append(np.asarray([[0.5,0], [0,0.2]]))
-    phn_covs.append(np.asarray([[0.2,-0.2], [-0.2,0.5]]))
-    phn_covs.append(np.asarray([[0.2,-0.15], [-0.15,0.2]]))
+    phn_covs.append(np.asarray([[0.5,  0],    [0,     0.2]]))
+    phn_covs.append(np.asarray([[0.2, -0.2],  [-0.2,  0.5]]))
+    phn_covs.append(np.asarray([[0.2, -0.15], [-0.15, 0.2]]))
 
     spk_mus = []
     spk_mus.append(np.asarray([-0.7, 0.7]))
@@ -187,6 +190,7 @@ def instantiate_generators():
             gens.append(PhnSpkGenerator(phn_mu+spk_mu, phn_cov, phn, spk))
 
     return gens
+
 
 def generate(gens, N_per_cluster):
     X = torch.zeros((0, 2))
@@ -203,6 +207,7 @@ def generate(gens, N_per_cluster):
 
     return X, t_phn, t_spk
 
+
 def grouping_reporter(epoch, lr, losses, accs, val_losses, val_accs):
     string = "{:>3}, lr {:.3e}".format(epoch, lr)
     for l, a in zip(losses, accs):
@@ -216,7 +221,7 @@ def grouping_reporter(epoch, lr, losses, accs, val_losses, val_accs):
 def train(common, decoders, params,
           train_data, val_data,
           nb_epochs, report_interval=25,
-          reporter=common_module.grouping_reporter):
+          reporter=grouping_reporter):
     lr = 1e-3
     optim = torch.optim.Adam(params, lr=lr)
     best_val_loss = float("inf")
@@ -225,11 +230,11 @@ def train(common, decoders, params,
     patience = patience_init
 
     for i in range(nb_epochs):
-        ce, acc = common_module.multi_target_epoch(
+        ce, acc = multi_target_epoch(
             common, decoders, optim,
             train_data[0], train_data[1]
         )
-        val_ce, val_acc = common_module.multi_target_epoch(
+        val_ce, val_acc = multi_target_epoch(
             common, decoders, optim,
             val_data[0], val_data[1], train=False
         )
