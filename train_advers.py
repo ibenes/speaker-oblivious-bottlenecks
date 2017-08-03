@@ -11,6 +11,7 @@ import argparse
 
 import common_module
 import data
+import plotting
 
 
 class GradReverter(torch.autograd.Function):
@@ -71,11 +72,11 @@ def adversary_train(bne, main, adversaly_aux, train_data, val_data, nb_epochs, r
 def main(args):
     np.random.seed(args.seed)
     gens = data.instantiate_generators()
- 
+
     X, t_phn, t_spk = data.generate(gens, 100)
     X_val, t_phn_val, t_spk_val = data.generate(gens, 100)
 
-    plotter = common_module.Plotter(args.no_plot)
+    plotter = plotting.Plotter(args.no_plot)
     plotter.plot(X, t_phn, t_spk, name="Raw data")
     raw_bl, raw_ur = plotter.plot(X_val, t_phn_val, t_spk_val, name="Raw validation data")
 
@@ -92,7 +93,7 @@ def main(args):
           args.nb_epochs)
 
     bl, ur = plotter.plot(X, t_phn, t_spk, name="BN features, PHN-SPK optimized", transform=bn_extractor)
-    common_module.plot_preds(plotter, "PHN decoding in disconcertly trained BN space", bl, ur, phn_decoder)
+    plotting.plot_preds(plotter, "PHN decoding in disconcertly trained BN space", bl, ur, phn_decoder)
 
 
 if __name__ == '__main__':

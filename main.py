@@ -8,6 +8,7 @@ import argparse
 
 import common_module
 import data
+import plotting
 
 
 def main(args):
@@ -17,7 +18,7 @@ def main(args):
     X, t_phn, t_spk = data.generate(gens, 100)
     X_val, t_phn_val, t_spk_val = data.generate(gens, 100)
 
-    plotter = common_module.Plotter(args.no_plot)
+    plotter = plotting.Plotter(args.no_plot)
     plotter.plot(X, t_phn, t_spk, name="Raw data")
     raw_bl, raw_ur = plotter.plot(
         X_val, t_phn_val, t_spk_val, name="Raw validation data"
@@ -36,11 +37,11 @@ def main(args):
         X, t_phn, t_spk,
         name="BN features, PHN optimized", transform=bne
     )
-    common_module.plot_preds(
+    plotting.plot_preds(
         plotter, "PHN decoding in raw space",
         raw_bl, raw_ur, lambda x: phn_dec(bne(x))
     )
-    common_module.plot_preds(
+    plotting.plot_preds(
         plotter, "PHN decoding in BN space",
         bl, ur, phn_dec
     )
