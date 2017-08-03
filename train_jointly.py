@@ -45,6 +45,7 @@ def train(common, decoders, params, train_data, val_data, nb_epochs, report_inte
             else:
                 patience -= 1
 
+
         if i % report_interval == report_interval - 1:
             string = reporter(i, lr, ce, acc, val_ce, val_acc)
             print(string)
@@ -63,27 +64,18 @@ def main(args):
 
     torch.manual_seed(args.seed)
     bn_extractor_init, phn_decoder_init, spk_decoder_init = common_module.create_models(args.bne_width)
-    bn_extractor = copy.deepcopy(bn_extractor_init)
 
+    bn_extractor = copy.deepcopy(bn_extractor_init)
+    spk_decoder = copy.deepcopy(spk_decoder_init)
     phn_decoder = copy.deepcopy(phn_decoder_init)
 
-    print("\nTraining PHN network")
-    train(bn_extractor, [phn_decoder],
-          itertools.chain(bn_extractor.parameters(), phn_decoder.parameters()),
-          (X, [t_phn]), (X_val, [t_phn_val]), 
+    train(bn_extractor, [phn_decoder, spk_decoder],
+          itertools.chain(bn_extractor.parameters(), phn_decoder.parameters(), spk_decoder.parameters()),
+          (X, [t_phn, t_spk]), (X_val, [t_phn_val, t_spk_val]),
           args.nb_epochs)
 
-    bl, ur = plotter.plot(X, t_phn, t_spk, name="BN features, PHN optimized", transform=bn_extractor)
-    common_module.plot_preds(plotter, "PHN decoding in raw space", raw_bl, raw_ur, lambda x: phn_decoder(bn_extractor(x)))
-    common_module.plot_preds(plotter, "PHN decoding in BN space", bl, ur, phn_decoder)
-
-    spk_decoder = copy.deepcopy(spk_decoder_init)
-
-    print("\nTraining SPK decoder")
-    train(bn_extractor, [spk_decoder],
-          spk_decoder.parameters(), 
-          (X, [t_spk]), (X_val, [t_spk_val]),
-          args.nb_epochs)
+    bl, ur = plotter.plot(X, t_phn, t_spk, name="BN features, PHN+SPK optimized", transform=bn_extractor)
+    common_module.plot_preds(plotter, "PHN decoding in jointly trained BN space", bl, ur, phn_decoder)
 
 
 if __name__ == '__main__':
