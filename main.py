@@ -7,14 +7,15 @@ import itertools
 import argparse
 
 import common_module
+import data
 
 
 def main(args):
     np.random.seed(args.seed)
-    gens = common_module.instantiate_generators()
+    gens = data.instantiate_generators()
 
-    X, t_phn, t_spk = common_module.generate(gens, 100)
-    X_val, t_phn_val, t_spk_val = common_module.generate(gens, 100)
+    X, t_phn, t_spk = data.generate(gens, 100)
+    X_val, t_phn_val, t_spk_val = data.generate(gens, 100)
 
     plotter = common_module.Plotter(args.no_plot)
     plotter.plot(X, t_phn, t_spk, name="Raw data")
