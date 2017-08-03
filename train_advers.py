@@ -12,6 +12,7 @@ import argparse
 import common_module
 import data
 import plotting
+import model
 
 
 class GradReverter(torch.autograd.Function):
@@ -81,7 +82,7 @@ def main(args):
     raw_bl, raw_ur = plotter.plot(X_val, t_phn_val, t_spk_val, name="Raw validation data")
 
     torch.manual_seed(args.seed)
-    bn_extractor_init, phn_decoder_init, spk_decoder_init = common_module.create_models(args.bne_width)
+    bn_extractor_init, phn_decoder_init, spk_decoder_init = model.create_models(args.bne_width)
 
     bn_extractor = copy.deepcopy(bn_extractor_init)
     spk_decoder = copy.deepcopy(spk_decoder_init)

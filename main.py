@@ -9,6 +9,7 @@ import argparse
 import common_module
 import data
 import plotting
+import model
 
 
 def main(args):
@@ -25,7 +26,7 @@ def main(args):
     )
 
     torch.manual_seed(args.seed)
-    bne, phn_dec, spk_dec = common_module.create_models(args.bne_width)
+    bne, phn_dec, spk_dec = model.create_models(args.bne_width)
 
     print("\nTraining PHN network")
     common_module.train(bne, [phn_dec],
