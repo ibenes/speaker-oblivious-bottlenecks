@@ -6,7 +6,7 @@ import torch
 import itertools
 import argparse
 
-import common_module
+import training
 import data
 import plotting
 import model
@@ -29,7 +29,7 @@ def main(args):
     bne, phn_dec, spk_dec = model.create_models(args.bne_width)
 
     print("\nTraining PHN network")
-    common_module.train(bne, [phn_dec],
+    training.train(bne, [phn_dec],
           itertools.chain(bne.parameters(), phn_dec.parameters()),
           (X, [t_phn]), (X_val, [t_phn_val]),
           args.nb_epochs)
@@ -48,7 +48,7 @@ def main(args):
     )
 
     print("\nTraining SPK decoder")
-    common_module.train(bne, [spk_dec],
+    training.train(bne, [spk_dec],
           spk_dec.parameters(),
           (X, [t_spk]), (X_val, [t_spk_val]),
           args.nb_epochs)

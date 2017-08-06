@@ -6,7 +6,7 @@ import torch
 import itertools
 import argparse
 
-import common_module
+import training
 import data
 import plotting
 import model
@@ -29,7 +29,7 @@ def main(args):
     torch.manual_seed(args.seed)
     bne, phn_dec, spk_dec = model.create_models(args.bne_width)
 
-    common_module.train(
+    training.train(
         bne, [phn_dec, spk_dec],
         itertools.chain(
             bne.parameters(), phn_dec.parameters(), spk_dec.parameters()

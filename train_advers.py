@@ -9,7 +9,7 @@ import copy
 import sys
 import argparse
 
-import common_module
+import training
 import data
 import plotting
 import model
@@ -24,7 +24,7 @@ class GradReverter(torch.autograd.Function):
 
 
 def adversary_train(bne, main, adversaly_aux, train_data, val_data, nb_epochs, report_interval=25,
-        reporter=common_module.grouping_reporter):
+        reporter=training.grouping_reporter):
     lr = 1e-3
     main_optim = torch.optim.Adam(itertools.chain(bne.parameters(), main.parameters()), lr=lr)
     adversary_optim = torch.optim.Adam(adversaly_aux.parameters(), lr=lr)
@@ -44,11 +44,11 @@ def adversary_train(bne, main, adversaly_aux, train_data, val_data, nb_epochs, r
             print(string)
             break
 
-        ce, acc = common_module.multi_target_epoch(bne, [main, adversary], main_optim, train_data[0], train_data[1])
+        ce, acc = training.multi_target_epoch(bne, [main, adversary], main_optim, train_data[0], train_data[1])
         for j in range(adversary_epochs):
-            ce, acc = common_module.multi_target_epoch(bne, [adversary], adversary_optim, train_data[0], train_data[1][1:])
+            ce, acc = training.multi_target_epoch(bne, [adversary], adversary_optim, train_data[0], train_data[1][1:])
 
-        val_ce, val_acc = common_module.multi_target_epoch(bne, [main, adversary], main_optim, val_data[0], val_data[1], train=False)
+        val_ce, val_acc = training.multi_target_epoch(bne, [main, adversary], main_optim, val_data[0], val_data[1], train=False)
 
         val_loss = val_ce[0] # we only measure the main (PHN) crossentropy
         if val_loss < best_val_loss:
